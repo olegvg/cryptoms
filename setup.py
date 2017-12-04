@@ -10,17 +10,18 @@ tests_require = [
 setup(
     name='py_proxy',
     version='0.1',
-    packages=['py_proxy'],
-    test_suite='py_proxy.testsuite',
+    packages=['transer'],
+    test_suite='transer.testsuite.__init__',
     install_requires=reqs,
     entry_points={
         'console_scripts': [
-            'py_proxy=py_proxy.cli:main'
+            'transer=transer.daemon:main'
         ]
     },
     setup_requires=[
         'flake8',
-        'wheel'
+        'wheel',
+        'pytest-runner'
     ],
     zip_safe=True,
     tests_require=tests_require,

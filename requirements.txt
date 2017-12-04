@@ -1,0 +1,13 @@
+attrs==17.3.0
+click==6.7
+docutils==0.14
+lockfile==0.12.2
+pluggy==0.6.0
+psycopg2==2.7.3.2
+py==1.5.2
+pycoin==0.80
+pytest==3.3.0
+python-bitcoinrpc==1.0
+python-daemon==2.1.2
+six==1.11.0
+SQLAlchemy==1.1.15

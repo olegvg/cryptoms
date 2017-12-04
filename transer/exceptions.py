@@ -1,14 +1,29 @@
 import logging
 
-from ..utils import ExceptionBaseClass
+from .utils import ExceptionBaseClass
 
 logger = logging.getLogger('.db')
 
 
-class AddressIntegrityException(ExceptionBaseClass):
+class BtcAddressIntegrityException(ExceptionBaseClass):
     logger = logger
 
 
-class AddressCreationException(ExceptionBaseClass):
+class BtcAddressCreationException(ExceptionBaseClass):
     logger = logger
 
+
+class BtcAddressValidationException(ExceptionBaseClass):
+    logger = logger
+
+
+class BtcCreateTransactionException(ExceptionBaseClass):
+    logger = logger
+
+
+class BtcSignTransactionException(ExceptionBaseClass):
+    logger = logger
+
+
+class BtcSendTransactionException(ExceptionBaseClass):
+    logger = logger
