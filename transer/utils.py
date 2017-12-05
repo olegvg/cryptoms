@@ -1,9 +1,17 @@
 import logging
 import json
+import asyncio
+import importlib.util
+import sys
+import os.path
 from datetime import datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import ProgrammingError
+
+from jsonrpc import JSONRPCResponseManager
+from jsonrpc.utils import DatetimeDecimalEncoder
+from aiohttp import web
 
 from . import db
 
@@ -57,3 +65,48 @@ def init_logging(level=100):
     root_logger = logging.getLogger()
     root_logger.addHandler(default_handler)
     root_logger.setLevel(level)
+
+
+def jsonrpc_handler(dispatcher, headers, body):
+    if headers.get('Content-Type') != 'application/json':
+        error_response = {
+            'error': {
+                'code': -32700,
+                'message': 'Parse error'
+            },
+            'id': None,
+            'jsonrpc': '2.0'
+        }
+        return web.Response(text=json.dumps(error_response), headers={'Content-Type': 'application/json'})
+
+    response = JSONRPCResponseManager.handle(body, dispatcher)
+    response.serialize = lambda s: json.dumps(s, cls=DatetimeDecimalEncoder)
+    return web.Response(text=response.json, headers={'Content-Type': 'application/json'})
+
+
+def concurrent_fabric(executor):
+    def json_rpc_handler_fabric(dispatcher):
+        async def submitter(request):
+            body = await request.text()
+            future = executor.submit(jsonrpc_handler, dispatcher, request.headers, body)
+            return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
+        return submitter
+    return json_rpc_handler_fabric
+
+
+def bulk_importer(path):
+    _, package_name = os.path.split(path)
+
+    only_py_files = [f for f in os.listdir(path)
+                     if os.path.isfile(os.path.join(path, f)) and not f.startswith('__')]
+
+    py_files = [os.path.join(path, f) for f in only_py_files]
+    module_names = [package_name + '.' + p.split('.')[0] for p in only_py_files]
+
+    module_specs = dict(zip(module_names, py_files))
+
+    for m, f in module_specs.items():
+        spec = importlib.util.spec_from_file_location(m, f)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        sys.modules[m] = mod
