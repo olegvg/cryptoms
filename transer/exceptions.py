@@ -27,3 +27,7 @@ class BtcSignTransactionException(ExceptionBaseClass):
 
 class BtcSendTransactionException(ExceptionBaseClass):
     logger = logger
+
+
+class EthAddressIntegrityException(ExceptionBaseClass):
+    logger = logger
