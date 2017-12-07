@@ -101,6 +101,9 @@ def bulk_importer(path):
                      if os.path.isfile(os.path.join(path, f)) and not f.startswith('__')]
 
     py_files = [os.path.join(path, f) for f in only_py_files]
+
+    # Можно было бы не заморачиваться использовать UUID4 в качестве имени модуля,
+    # но тогда бы traceback был неинформативный
     module_names = [package_name + '.' + p.split('.')[0] for p in only_py_files]
 
     module_specs = dict(zip(module_names, py_files))
@@ -109,4 +112,4 @@ def bulk_importer(path):
         spec = importlib.util.spec_from_file_location(m, f)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        sys.modules[m] = mod
+        sys.modules[m] = mod  # Без этого pickle в json-rpc работать не будет. Да и вообще...
