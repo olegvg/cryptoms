@@ -113,3 +113,11 @@ def bulk_importer(path):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         sys.modules[m] = mod
+
+
+def docstrings_from_dispatcher(dispatcher):
+    json_rpc_methods = dispatcher.method_map
+
+    methods = {k: v.__doc__ for k, v in json_rpc_methods.items()}
+
+    return methods
