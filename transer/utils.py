@@ -51,6 +51,9 @@ def init_db(uri):
     engine = create_engine(uri)
     db.sqla_session.configure(bind=engine)
     db.meta.bind = engine
+
+    db.meta.create_all(checkfirst=True)
+
     return engine
 
 
