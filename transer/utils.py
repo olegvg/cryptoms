@@ -51,6 +51,9 @@ def init_db(uri):
     engine = create_engine(uri)
     db.sqla_session.configure(bind=engine)
     db.meta.bind = engine
+
+    db.meta.create_all(checkfirst=True)
+
     return engine
 
 
@@ -113,3 +116,11 @@ def bulk_importer(path):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         sys.modules[m] = mod  # Без этого pickle в json-rpc работать не будет. Да и вообще...
+
+
+def docstrings_from_dispatcher(dispatcher):
+    json_rpc_methods = dispatcher.method_map
+
+    methods = {k: v.__doc__ for k, v in json_rpc_methods.items()}
+
+    return methods
