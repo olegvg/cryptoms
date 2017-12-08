@@ -87,8 +87,7 @@ def validate_addresses(bt_name, addresses, confirmations=6, estimate_spendables=
     :param confirmations: количество подтвержденных блоков для засчитывания транзакции
     :param estimate_spendables: количество BTC которое должно быть как минимум доступно в addresses
     :return: (interested_sources, total, status), где
-        interested_sources - структуры для адресов из addresses + ['address_inst'] объекты db.btc.Address,
-            по которым есть UXTOs
+        interested_sources - структуры для адресов из addresses, по которым есть UXTOs
         total - сумма средств на UXTOs для адресов из addresses
         status - достаточность средств, True/False
     """
