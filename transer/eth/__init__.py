@@ -5,7 +5,7 @@ from jsonrpc import Dispatcher
 
 from transer.utils import bulk_importer
 
-eth_divider = decimal.Decimal('1000000000000000000')
+eth_divider = decimal.Decimal('1000000000000000000')    # one Wei divider
 
 _eth_dispatcher = Dispatcher()
 
