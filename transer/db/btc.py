@@ -32,7 +32,7 @@ class MasterKey(Base):
 
     def __init__(self, masterkey_name, priv_masterkey, treat_as_testnet):
         self.masterkey_name = masterkey_name
-        self.priv_masterkey =priv_masterkey
+        self.priv_masterkey = priv_masterkey
         bip32_key = BIP32Node.from_hwif(priv_masterkey)
         self.pub_masterkey = bip32_key.hwif(as_private=False)
         self.treat_as_testnet = treat_as_testnet
