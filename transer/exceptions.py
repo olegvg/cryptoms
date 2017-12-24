@@ -5,6 +5,10 @@ from .utils import ExceptionBaseClass
 logger = logging.getLogger('.db')
 
 
+class DaemonConfigException(ExceptionBaseClass):
+    logger = logger
+
+
 class BtcAddressIntegrityException(ExceptionBaseClass):
     logger = logger
 

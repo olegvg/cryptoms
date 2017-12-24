@@ -1,5 +1,5 @@
 from pip.req import parse_requirements
-from setuptools import setup
+from setuptools import setup, find_packages
 
 reqs = [str(ir.req) for ir in
         parse_requirements('requirements.txt', session='')]
@@ -8,9 +8,9 @@ tests_require = [
 ]
 
 setup(
-    name='py_proxy',
+    name='transer_btc',
     version='0.1',
-    packages=['transer'],
+    packages=find_packages(),
     test_suite='transer.testsuite.__init__',
     install_requires=reqs,
     entry_points={
