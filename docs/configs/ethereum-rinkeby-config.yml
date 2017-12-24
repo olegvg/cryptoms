@@ -1,0 +1,12 @@
+[Eth]
+NetworkId = 4
+SyncMode = "full"
+EthashDatasetDir = "/mnt/blockchain/ethereum-rinkeby/.ethash"
+
+[Node]
+DataDir = "/mnt/blockchain/ethereum-rinkeby"
+IPCPath = "geth.ipc"
+HTTPPort = 48545
+HTTPModules = ["net", "web3", "eth", "shh"]
+WSPort = 48546
+WSModules = ["net", "web3", "eth", "shh"]
