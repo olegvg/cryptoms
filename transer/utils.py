@@ -44,6 +44,24 @@ def recreate_entire_database(engine):
         pass
     connection.execute('CREATE SCHEMA BTC_PUBLIC;')
 
+    try:
+        connection.execute('DROP SCHEMA ETH_PRIVATE CASCADE;')
+    except ProgrammingError:
+        pass
+    connection.execute('CREATE SCHEMA ETH_PRIVATE;')
+
+    try:
+        connection.execute('DROP SCHEMA ETH_PUBLIC CASCADE;')
+    except ProgrammingError:
+        pass
+    connection.execute('CREATE SCHEMA ETH_PUBLIC;')
+
+    try:
+        connection.execute('DROP SCHEMA COMMON_PUBLIC CASCADE;')
+    except ProgrammingError:
+        pass
+    connection.execute('CREATE SCHEMA COMMON_PUBLIC;')
+
     connection.close()
 
 
