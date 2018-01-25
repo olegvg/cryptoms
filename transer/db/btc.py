@@ -85,7 +85,7 @@ class Address(Base):
     # last component of key generating path e.g. for 66 it will be 44'/1'/0'/0/66
     crypto_number = Column(Integer)
 
-    address = Column(String(35), index=True, unique=True)
+    address = Column(String(35), index=True, unique=True, default=0.0)
     amount = Column(Float(precision=24, asdecimal=True))
 
     timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
@@ -157,6 +157,7 @@ class Address(Base):
 
             if isinstance(override_timestamp, datetime):
                 instances.append(cls(
+                    bitcoind_inst=bitcoind_inst,
                     masterkey=masterkey,
                     crypto_path=crypto_path,
                     crypto_number=k,
@@ -165,6 +166,7 @@ class Address(Base):
                 )
             else:
                 instances.append(cls(
+                    bitcoind_inst=bitcoind_inst,
                     masterkey=masterkey,
                     crypto_path=crypto_path,
                     crypto_number=k,
