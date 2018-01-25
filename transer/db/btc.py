@@ -5,7 +5,7 @@ import logging
 
 from bitcoinrpc.authproxy import AuthServiceProxy
 from pycoin.key.BIP32Node import BIP32Node
-from sqlalchemy import Column, Integer, String, Unicode, Boolean, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Unicode, Boolean, DateTime, ForeignKey, UniqueConstraint, Float, desc
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import functions
 
@@ -15,6 +15,8 @@ from . import Base, sqla_session
 logger = logging.getLogger('db')
 
 schema_prefix = 'btc_'
+
+DERIVATION_PATH = "44'/0'/0'/0"    # see BIP44
 
 
 class MasterKey(Base):
@@ -84,6 +86,8 @@ class Address(Base):
     crypto_number = Column(Integer)
 
     address = Column(String(35), index=True, unique=True)
+    amount = Column(Float(precision=24, asdecimal=True))
+
     timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
     is_populated = Column(Boolean, default=False)
 
@@ -112,7 +116,7 @@ class Address(Base):
             BtcAddressIntegrityException(f'Difference between calculated and stored addresses for id {self.id}')
 
     @classmethod
-    def create_addresses(cls, bitcoind_inst, masterkey, crypto_path, from_crypto_num, num_addrs,
+    def create_addresses(cls, bitcoind_inst, masterkey, from_crypto_num, num_addrs, crypto_path=DERIVATION_PATH,
                          update_bitcoind=True, override_timestamp=False, check_integrity=False):
         """
         create_addresses()
@@ -179,6 +183,46 @@ class Address(Base):
             )
         else:
             return instances
+
+    @classmethod
+    def create_next_address(cls, bitcoind_inst, masterkey, crypto_path=DERIVATION_PATH,
+                            update_bitcoind=True, override_timestamp=False, check_integrity=False):
+        """
+        create_addresses()
+
+        :param bitcoind_inst: sqla инстанс rpc-коннектора к bitcoind
+        :param masterkey: sqla инстанс BIP32 мастер-ключа
+        :param crypto_path: BIP32 путь криптования (базовая часть)
+        :param update_bitcoind: обновлять ли bitcoind-овые wallets, см. совместно с  :override_timestamp:
+        :param override_timestamp: форсировать произвольный timestamp (datetime.datetime) или False в случае now().
+        :param check_integrity:
+        :return: list of sqla инстансов Address
+        """
+        interested_addrs_q = cls.query.filter(
+            cls.bitcoind_inst == bitcoind_inst,
+            cls.masterkey == masterkey,
+            cls.crypto_path == crypto_path,
+        ).order_by(
+            desc(cls.crypto_number)
+        )
+
+        latest_row = interested_addrs_q.first()
+        if latest_row is None:
+            crypto_number = 0
+        else:
+            crypto_number = latest_row.crypto_number + 1
+
+        new_address = cls.create_addresses(
+            bitcoind_inst=bitcoind_inst,
+            masterkey=masterkey,
+            crypto_path=crypto_path,
+            from_crypto_num=crypto_number,
+            update_bitcoind=update_bitcoind,
+            num_addrs=1,
+            override_timestamp=override_timestamp,
+            check_integrity=check_integrity
+        )[0]
+        return new_address
 
     @staticmethod
     def update_bitcoind_with_addresses(bitcoind_inst, instances, check_integrity=False):
