@@ -157,6 +157,7 @@ class Address(Base):
 
         new_address = cls.create_addresses(
             masterkey=masterkey,
+            crypto_path=crypto_path,
             from_crypto_num=crypto_number,
             num_addrs=1,
             override_timestamp=override_timestamp
