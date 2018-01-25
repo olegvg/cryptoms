@@ -72,8 +72,8 @@ if __name__ == '__main__':
         listen_host='127.0.0.1',
         listen_port=8000,
         workers=10,
-        btc_masterkey_name='',
+        btc_masterkey_name='btc_main',
         eth_masterkey_name='eth_main',
-        btcd_instance_name='',
+        btcd_instance_name='main_instance',
         etcd_instance_uri=''
     )
