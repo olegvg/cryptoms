@@ -8,4 +8,4 @@ if __name__ == '__main__':
     sys.path.append(rootpath)
 
     from transer import daemon
-    daemon.init()
+    daemon.main()
