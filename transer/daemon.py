@@ -35,6 +35,8 @@ def run(db_uri, listen_host, listen_port, workers,
     app.router.add_post('/btc', handler_fabric(btc_dispatcher))
     app.router.add_post('/eth', handler_fabric(eth_dispatcher))
     app.router.add_post('/claim-wallet-addr/{currency}', outerface.claim_wallet_addr)
+    app.router.add_post('/withdraw', outerface.withdraw_endpoint)
+    app.router.add_post('/withdrawal-status/{u_txid}', outerface.withdrawal_status)
 
     web.run_app(app, host=listen_host, port=listen_port, loop=async_loop)
 

@@ -20,3 +20,5 @@ class WithdrawalStatus(Enum):
     CANCELLED = 'CANCELLED'
 
     COMPLETED_CHARGED = 'COMPLETED_CHARGED'
+
+    ERROR = 'ERROR'
