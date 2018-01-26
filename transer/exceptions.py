@@ -39,3 +39,7 @@ class EthAddressIntegrityException(ExceptionBaseClass):
 
 class EtcAddressCreationException(ExceptionBaseClass):
     logger = logger
+
+
+class TransactionInconsistencyError(ExceptionBaseClass):
+    logger = logger
