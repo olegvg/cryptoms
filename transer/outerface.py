@@ -4,7 +4,7 @@ from aiohttp.web import json_response
 
 from transer.types import CryptoCurrency, WithdrawalStatus
 from transer import config, schemata
-from transer.db import btc, eth, transaction
+from transer.db import btc, eth
 
 from transer.orchestrator import withdraw
 
@@ -65,8 +65,8 @@ async def withdraw_endpoint(request):
     withdraw_req.validate()
 
     handlers = {
-        'BTC': withdraw.withdraw_btc,
-        'ETH': withdraw.withdraw_eth
+        CryptoCurrency.BITCOIN.value: withdraw.withdraw_btc,
+        CryptoCurrency.ETHERIUM.value: withdraw.withdraw_eth
     }
 
     handler_func = handlers.get(data['currency'], lambda **_: WithdrawalStatus.ERROR.name)
