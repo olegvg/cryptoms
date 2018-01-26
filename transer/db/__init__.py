@@ -8,8 +8,16 @@ class IdMixin(object):
     @declared_attr
     def id(self):
         tablename = getattr(self, '__tablename__')  # No defaults. AttributeError expected in 'bare' case
-        col_name = 'id'
-        return Column(col_name, Integer, Sequence(tablename + col_name), primary_key=True)
+        table_args = getattr(self, '__table_args__')
+
+        # see http://docs.sqlalchemy.org/en/latest/orm/extensions/declarative/table_config.html#declarative-table-args
+        if isinstance(table_args, dict):
+            schema = table_args['schema']
+        if isinstance(table_args, tuple):
+            schema = table_args[-1]['schema']
+
+        col_name = id.__name__
+        return Column(col_name, Integer, Sequence(f'{schema}.{tablename}_{col_name}'), primary_key=True)
 
 
 class CustomBase(IdMixin):
