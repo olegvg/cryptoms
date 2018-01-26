@@ -3,10 +3,9 @@ import json
 from aiohttp.web import json_response
 
 from transer.types import CryptoCurrency, WithdrawalStatus
-from transer import config, schemata
-from transer.db import btc, eth
+from transer import schemata
 
-from transer.orchestrator import withdraw
+from transer.orchestrator import withdraw, claim_wallet_addr
 
 
 async def claim_wallet_addr(request):
@@ -16,47 +15,16 @@ async def claim_wallet_addr(request):
     if currency not in [x.value for x in CryptoCurrency]:
         return json_response({'error': True, 'message': f'{currency} is wrong'})
 
-    # TODO refactor code and move it to orchestrator package
-    if currency == 'ETH':
-        key_name = config['eth_masterkey_name']
-        masterkey_q = eth.MasterKey.query.filter(
-            eth.MasterKey.masterkey_name == key_name
-        )
-        masterkey = masterkey_q.one()
+    handlers = {
+        CryptoCurrency.BITCOIN.value: claim_wallet_addr.claim_btc_addr,
+        CryptoCurrency.ETHERIUM.value: claim_wallet_addr.claim_eth_addr
+    }
 
-        address_row = eth.Address.create_next_address(masterkey=masterkey)
+    handler_func = handlers.get(currency, lambda **_: WithdrawalStatus.ERROR.name)
 
-        data = {'wallet_address': address_row.address}
+    status = handler_func()
 
-        # another strange redundant validator :-)
-        new_wallet_response = schemata.ClaimWalletAddressResponse(data)
-        new_wallet_response.validate()
-
-        return json_response(data)
-
-    # TODO refactor code and move it to orchestrator package
-    if currency == 'BTC':
-        btcd_instance_name = config['btcd_instance_name']
-        key_name = config['btc_masterkey_name']
-        masterkey_q = btc.MasterKey.query.filter(
-            btc.MasterKey.masterkey_name == key_name
-        )
-        masterkey = masterkey_q.one()
-
-        bitcoind_instance_q = btc.BitcoindInstance.query.filter(
-            btc.BitcoindInstance.instance_name == btcd_instance_name
-        )
-        bitcoind_inst = bitcoind_instance_q.one()
-
-        address_row = btc.Address.create_next_address(bitcoind_inst=bitcoind_inst, masterkey=masterkey)
-
-        data = {'wallet_address': address_row.address}
-
-        # another strange redundant validator :-)
-        new_wallet_response = schemata.ClaimWalletAddressResponse(data)
-        new_wallet_response.validate()
-
-        return json_response(data)
+    return json_response(status)
 
 
 async def withdraw_endpoint(request):
@@ -83,7 +51,7 @@ async def withdraw_endpoint(request):
     return json_response(resp_data)
 
 
-async def withdrawal_status(request):
+async def withdrawal_status_endpoint(request):
     crypto_transaction = request.match_info['u_txid']
 
     resp_data = {'tx_id': crypto_transaction, 'status': 'COMPLETED'}
