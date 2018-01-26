@@ -34,6 +34,15 @@ def raw_transaction_size(sources, destination, change=None):
     return 148 * ins + 34 * outs + 10
 
 
+def transaction_fee_per_byte(bitcoind_inst, preferred_blocks=2):
+    bitcoind = bitcoind_inst.get_rpc_conn()
+
+    # Смотри https://github.com/bitcoin/bitcoin/issues/11500 и https://github.com/bitcoin/bitcoin/pull/10199
+    # Для testnet не работает
+    fee = bitcoind.estimatesmartfee(preferred_blocks)
+    return fee
+
+
 def raw_transaction_fee(bitcoind_inst, sources, destination, change=None, preferred_blocks=2):
     """
     Считалка рекомендованной комиссии транзакции в BTC для P2SH-транзакции
@@ -49,11 +58,10 @@ def raw_transaction_fee(bitcoind_inst, sources, destination, change=None, prefer
     """
 
     byte_size = raw_transaction_size(sources, destination, change)
-    bitcoind = bitcoind_inst.get_rpc_conn()
-
-    # Смотри https://github.com/bitcoin/bitcoin/issues/11500 и https://github.com/bitcoin/bitcoin/pull/10199
-    # Для testnet не работает
-    fee = bitcoind.estimatesmartfee(preferred_blocks)
+    fee = transaction_fee_per_byte(
+        bitcoind_inst=bitcoind_inst,
+        preferred_blocks=preferred_blocks
+    )
 
     errors = fee.get('errors')
     if errors:
