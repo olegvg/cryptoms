@@ -5,7 +5,7 @@ import logging
 
 from bitcoinrpc.authproxy import AuthServiceProxy
 from pycoin.key.BIP32Node import BIP32Node
-from sqlalchemy import Column, Integer, String, Unicode, Boolean, DateTime, ForeignKey, UniqueConstraint, Float, desc
+from sqlalchemy import Column, Integer, String, Unicode, Boolean, DateTime, ForeignKey, UniqueConstraint, Numeric, desc
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import functions
 
@@ -16,7 +16,8 @@ logger = logging.getLogger('db')
 
 schema_prefix = 'btc_'
 
-DERIVATION_PATH = "44'/0'/0'/0"    # see BIP44
+# DERIVATION_PATH = "44'/0'/0'/0"    # see BIP44
+DERIVATION_PATH = "0"    # Ethereum's simple path
 
 
 class MasterKey(Base):
@@ -63,6 +64,41 @@ class BitcoindInstance(Base):
         return AuthServiceProxy(self.get_url())
 
 
+class DepositsLog(Base):
+    __tablename__ = 'deposits_log_records'
+
+    __table_args__ = {
+        'schema': schema_prefix + 'public'
+    }
+
+    # unassociated in case of null
+    bitcoind_inst_ref = Column(ForeignKey(BitcoindInstance.id), index=True, nullable=True)
+    bitcoind_inst = relationship(BitcoindInstance, lazy='select')
+
+    confirmations_applied = Column(Integer, index=True)
+    confirmed_block_hash = Column(String(64), index=True, unique=True)
+    timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
+
+
+class ChangeTransactionLog(Base):
+    """
+    Хранилка всех change адресов и транзакций; при переводе крипты почти всегда есть 2 destination addresses:
+    #1 адрес для вывода крипты из системы
+    #2 адрес для возврата размена (change) как разница всех балансов исходных адресов и выводимой суммы.
+
+    Для того, чтобы не генерировать deposit events по этим change aдресам/транзакциям, их нужно сохранять
+    """
+
+    __tablename__ = 'change_log_records'
+
+    __table_args__ = {
+        'schema': schema_prefix + 'public'
+    }
+
+    # change_address = Column(String(35), index=True)
+    change_tx_id = Column(String(64), index=True, unique=True)
+
+
 class Address(Base):
     __tablename__ = 'addresses'
 
@@ -85,8 +121,8 @@ class Address(Base):
     # last component of key generating path e.g. for 66 it will be 44'/1'/0'/0/66
     crypto_number = Column(Integer)
 
-    address = Column(String(35), index=True, unique=True, default=0.0)
-    amount = Column(Float(precision=24, asdecimal=True))
+    address = Column(String(35), index=True, unique=True)
+    # amount = Column(Numeric(precision=32, scale=24, asdecimal=True))
 
     timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
     is_populated = Column(Boolean, default=False)
