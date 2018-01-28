@@ -75,6 +75,14 @@ def init_db(uri):
     return engine
 
 
+def dump_db_ddl():
+    def dump(sql, *multiparams, **params):
+        print(sql.compile(dialect=engine.dialect))
+
+    engine = create_engine('postgresql://', strategy='mock', executor=dump)
+    db.meta.create_all(engine, checkfirst=False)
+
+
 def init_logging(level=100):
     # default_formatter = '%(asctime)s %(levelname)-8s %(name)-16s %(message)s'
     default_formatter = '%(message)s'
