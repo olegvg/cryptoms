@@ -8,7 +8,7 @@ from transer import schemata
 from transer.orchestrator import withdraw, claim_wallet_addr
 
 
-async def claim_wallet_addr(request):
+async def claim_wallet_addr_endpoint(request):
     currency = request.match_info['currency']
 
     # strange redundant validator :-)
