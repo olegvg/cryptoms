@@ -3,7 +3,7 @@ from concurrent import futures
 import asyncio
 from aiohttp import web
 
-from transer.utils import concurrent_fabric, init_db
+from transer.utils import concurrent_fabric, init_db, dump_db_ddl, recreate_entire_database
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
 from transer.eth import init_eth
@@ -34,9 +34,9 @@ def run(db_uri, listen_host, listen_port, workers,
 
     app.router.add_post('/btc', handler_fabric(btc_dispatcher))
     app.router.add_post('/eth', handler_fabric(eth_dispatcher))
-    app.router.add_post('/claim-wallet-addr/{currency}', outerface.claim_wallet_addr)
+    app.router.add_post('/claim-wallet-addr/{currency}', outerface.claim_wallet_addr_endpoint)
     app.router.add_post('/withdraw', outerface.withdraw_endpoint)
-    app.router.add_post('/withdrawal-status/{u_txid}', outerface.withdrawal_status)
+    app.router.add_post('/withdrawal-status/{u_txid}', outerface.withdrawal_status_endpoint)
 
     web.run_app(app, host=listen_host, port=listen_port, loop=async_loop)
 
