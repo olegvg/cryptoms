@@ -44,9 +44,9 @@ schematics==2.0.1
 scrypt==0.8.0
 semantic-version==2.6.0
 six==1.11.0
-SQLAlchemy==1.2.1
+SQLAlchemy==1.2.2
 toolz==0.9.0
-typing==3.6.2
+typing==3.6.4
 urllib3==1.22
 web3==3.16.4
 yarl==1.1.0
