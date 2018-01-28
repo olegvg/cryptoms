@@ -24,6 +24,11 @@ def get_recent_deposit_transactions(bt_name, confirmations=6, update_amounts=Tru
         входящим транзакциям
     :return:
     """
+
+    # explicitly prohibit mempool/unconfirmed transactions to prevent race conditions
+    if confirmations <= 0:
+        return {}
+
     try:
         bitcoind_inst = btc.BitcoindInstance.query.filter_by(instance_name=bt_name).one()
     except NoResultFound:
@@ -111,3 +116,19 @@ def get_recent_deposit_transactions(bt_name, confirmations=6, update_amounts=Tru
     sqla_session.commit()
 
     return res_addresses
+
+
+@_btc_dispatcher.add_method
+def get_txid_status(bt_name, txid):
+    try:
+        bitcoind_inst = btc.BitcoindInstance.query.filter_by(instance_name=bt_name).one()
+    except NoResultFound:
+        raise BtcMonitorTransactionException(f'Bitcoind RPC server with name {bt_name} not found')
+
+    bitcoind = bitcoind_inst.get_rpc_conn()
+    try:
+        res = bitcoind.gettransaction(txid)
+    except JSONRPCException as e:
+        raise BtcMonitorTransactionException(str(e)) from e
+
+    return res

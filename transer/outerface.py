@@ -2,8 +2,11 @@ import json
 
 from aiohttp.web import json_response
 
-from transer.types import CryptoCurrency, WithdrawalStatus
+from sqlalchemy.orm.exc import MultipleResultsFound
+
 from transer import schemata
+from transer.db import transaction, sqla_session
+from transer.types import CryptoCurrency, WithdrawalStatus
 
 from transer.orchestrator import withdraw, claim_wallet_addr
 
@@ -52,9 +55,32 @@ async def withdraw_endpoint(request):
 
 
 async def withdrawal_status_endpoint(request):
-    crypto_transaction = request.match_info['u_txid']
+    u_txid = request.match_info['u_txid']
 
-    resp_data = {'tx_id': crypto_transaction, 'status': 'COMPLETED'}
+    crypto_transaction_q = transaction.CryptoTransaction.query.filter(
+        transaction.CryptoTransaction.u_txid == u_txid
+    )
+
+    try:
+        crypto_transaction = crypto_transaction_q.one()
+    except MultipleResultsFound:
+        resp_data = {'tx_id': u_txid, 'status': WithdrawalStatus.ERROR.value}
+        withdraw_req = schemata.WithdrawResponse(resp_data)
+        withdraw_req.validate()
+        return json_response(resp_data)
+
+    handlers = {
+        CryptoCurrency.BITCOIN.value: withdraw.withdrawal_status_btc,
+        CryptoCurrency.ETHERIUM.value: withdraw.withdrawal_status_eth
+    }
+    handler_func = handlers.get(crypto_transaction.currency, lambda **_: WithdrawalStatus.ERROR.name)
+
+    status = handler_func(crypto_transaction.txids)
+
+    crypto_transaction.status = status
+    sqla_session.commit()
+
+    resp_data = {'tx_id': u_txid, 'status': status}
     withdraw_req = schemata.WithdrawResponse(resp_data)
     withdraw_req.validate()
     return json_response(resp_data)
