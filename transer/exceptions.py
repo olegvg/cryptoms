@@ -33,6 +33,10 @@ class BtcSendTransactionException(ExceptionBaseClass):
     logger = logger
 
 
+class BtcMonitorTransactionException(ExceptionBaseClass):
+    logger = logger
+
+
 class EthAddressIntegrityException(ExceptionBaseClass):
     logger = logger
 
