@@ -1,9 +1,10 @@
+import sys
+import os.path
+import functools
 import logging
 import json
 import asyncio
 import importlib.util
-import sys
-import os.path
 from datetime import datetime
 
 from sqlalchemy import create_engine
@@ -150,3 +151,26 @@ def docstrings_from_dispatcher(dispatcher):
     methods = {k: v.__doc__ for k, v in json_rpc_methods.items()}
 
     return methods
+
+
+# inspired by https://gist.github.com/Horace89/88316fb7e518cc629ccb63abec540e48
+def delayed_schedule(func, args=None, kwargs=None, interval=60, *, loop, executor):
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+
+    async def periodic_func():
+        while True:
+            print(args, kwargs)
+            future = executor.submit(func, *args, **kwargs)
+            await asyncio.wrap_future(future)
+            await asyncio.sleep(interval, loop=loop)
+
+    return loop.create_task(periodic_func())
+
+
+def create_delayed_scheduler(loop=None, executor=None):
+    if loop is not None and executor is not None:
+        return functools.partial(delayed_schedule, loop=loop, executor=executor)
+    return None
