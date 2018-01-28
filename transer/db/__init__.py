@@ -13,11 +13,13 @@ class IdMixin(object):
         # see http://docs.sqlalchemy.org/en/latest/orm/extensions/declarative/table_config.html#declarative-table-args
         if isinstance(table_args, dict):
             schema = table_args['schema']
-        if isinstance(table_args, tuple):
+        elif isinstance(table_args, tuple):
             schema = table_args[-1]['schema']
+        else:
+            schema = ''
 
         col_name = id.__name__
-        return Column(col_name, Integer, Sequence(f'{schema}.{tablename}_{col_name}'), primary_key=True)
+        return Column(col_name, Integer, Sequence(f'{tablename}_{col_name}', schema=schema), primary_key=True)
 
 
 class CustomBase(IdMixin):
