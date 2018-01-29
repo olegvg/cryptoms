@@ -3,10 +3,11 @@ from concurrent import futures
 import asyncio
 from aiohttp import web
 
-from transer.utils import concurrent_fabric, init_db, dump_db_ddl, recreate_entire_database
+from transer.utils import concurrent_fabric, init_db, create_delayed_scheduler, dump_db_ddl, recreate_entire_database
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
 from transer.eth import init_eth
+from transer.orchestrator import deposit
 
 from transer import outerface
 from transer import config
@@ -14,13 +15,16 @@ from transer import config
 
 def run(db_uri, listen_host, listen_port, workers,
         btc_masterkey_name, eth_masterkey_name,
-        btcd_instance_name, etcd_instance_uri):
+        btcd_instance_name, etcd_instance_uri,
+        deposit_notification_endpoint):
 
     config['eth_masterkey_name'] = eth_masterkey_name
     config['btc_masterkey_name'] = btc_masterkey_name
 
     config['etcd_instance_uri'] = etcd_instance_uri
     config['btcd_instance_name'] = btcd_instance_name
+
+    config['deposit_notification_endpoint'] = deposit_notification_endpoint
 
     async_loop = asyncio.get_event_loop()
     app = web.Application()
@@ -38,6 +42,17 @@ def run(db_uri, listen_host, listen_port, workers,
     app.router.add_post('/withdraw', outerface.withdraw_endpoint)
     app.router.add_post('/withdrawal-status/{u_txid}', outerface.withdrawal_status_endpoint)
 
+    delayed_scheduler = create_delayed_scheduler(loop=async_loop, executor=executor)
+    btc_deposit_monitor_task = delayed_scheduler(
+        deposit.periodic_check_deposit_btc,
+        interval=50
+    )
+
+    btc_deposit_send_task = delayed_scheduler(
+        deposit.periodic_send_deposit_btc,
+        interval=50
+    )
+
     web.run_app(app, host=listen_host, port=listen_port, loop=async_loop)
 
 
@@ -47,6 +62,7 @@ def main():
 
     btcd_instance_name = environ['T_BTCD_INSTANCE_NAME']
     etcd_instance_uri = environ['T_ETCD_INSTANCE_URI']
+    deposit_notification_endpoint = environ['T_DEPOSIT_NOTOFICATION_ENDPOINT']
 
     try:
         db_uri = environ['T_DB_URI']
@@ -64,7 +80,8 @@ def main():
         btc_masterkey_name=btc_masterkey_name,
         eth_masterkey_name=eth_masterkey_name,
         btcd_instance_name=btcd_instance_name,
-        etcd_instance_uri=etcd_instance_uri
+        etcd_instance_uri=etcd_instance_uri,
+        deposit_notification_endpoint=deposit_notification_endpoint
     )
 
 
@@ -77,5 +94,6 @@ if __name__ == '__main__':
         btc_masterkey_name='btc_main',
         eth_masterkey_name='eth_main',
         btcd_instance_name='main_instance',
-        etcd_instance_uri=''
+        etcd_instance_uri='',
+        deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit'
     )

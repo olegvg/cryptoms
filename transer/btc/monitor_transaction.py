@@ -1,6 +1,3 @@
-import decimal
-from collections import defaultdict
-
 from bitcoinrpc.authproxy import JSONRPCException
 
 from transer.exceptions import BtcMonitorTransactionException
@@ -12,7 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 
 @_btc_dispatcher.add_method
-def get_recent_deposit_transactions(bt_name, confirmations=6, update_amounts=True):
+def get_recent_deposit_transactions(bt_name, confirmations=6):
     """
     pull-проверяльщик новых входящих (receive) транзакций, для заданного количества конфирмаций
     гарантирует однократный учёт входящих транзакций (only-once semantics)
@@ -20,14 +17,12 @@ def get_recent_deposit_transactions(bt_name, confirmations=6, update_amounts=Tru
     :param bt_name: name to lookup in btc.BitcoindInstance, as str
     :param confirmations: минимальное количетство подтверждений, для которого проверяется наличие новых транзакций;
         является дискриминатором: для разных величин алгоритм отрабатывает независимо
-    :param update_amounts: обновлять/инкрементировать количество денег в кошельках btc.Address согласно найденным
-        входящим транзакциям
     :return:
     """
 
     # explicitly prohibit mempool/unconfirmed transactions to prevent race conditions
     if confirmations <= 0:
-        return {}
+        return []
 
     try:
         bitcoind_inst = btc.BitcoindInstance.query.filter_by(instance_name=bt_name).one()
@@ -44,18 +39,6 @@ def get_recent_deposit_transactions(bt_name, confirmations=6, update_amounts=Tru
         latest_block_hash = log_entry.confirmed_block_hash
     except NoResultFound:
         latest_block_hash = ''
-        # if update_amounts is True:
-        #     affected_addresses_q = btc.Address.query.filter(
-        #         btc.Address.bitcoind_inst == bitcoind_inst,
-        #         btc.Address.is_populated.is_(True)
-        #     )
-        #
-        #     affected_addresses = affected_addresses_q.all()
-        #     for a in affected_addresses:
-        #         a.amount = 0.0
-        #
-        #     sqla_session.flush()     # commit() is so early
-        #     sqla_session.expunge_all()
 
     bitcoind = bitcoind_inst.get_rpc_conn()
     try:
@@ -73,30 +56,23 @@ def get_recent_deposit_transactions(bt_name, confirmations=6, update_amounts=Tru
         btc.ChangeTransactionLog.change_tx_id.in_(txids)
     )
     change_txs = change_txs_q.all()
-    change_txids = [x.change_tx_id for x in change_txs]
+    change_txids = [x.change_tx_id for x in change_txs]     # txids to exclude from result list
 
-    addresses = defaultdict(decimal.Decimal)
-    for t in receive_txs:
-        if t['txid'] in change_txids:
-            continue
-        address = t['address']
-        amount = t['amount']
-        addresses[address] += amount
-
+    addresses = [x['address'] for x in receive_txs]
     involved_addresses_q = btc.Address.query.filter(
         # Size of sql-statement is limited to 1G. It will be enough
         # See https://doxygen.postgresql.org/memutils_8h.html#a74a92b981e9b6aa591c5fbb24efd1dac
-        btc.Address.address.in_(addresses.keys()),
+        btc.Address.address.in_(addresses),
         btc.Address.bitcoind_inst == bitcoind_inst,
         btc.Address.is_populated.is_(True)
     )
+    involved_addresses = [x.address for x in involved_addresses_q.all()]    # addresses to include to result list
 
-    involved_addresses = involved_addresses_q.all()
-    res_addresses = defaultdict(list)
-    for a in involved_addresses:
-        res_addresses[a.address].append(addresses[a.address])
-        # if update_amounts is True:
-        #     a.amount += addresses[a.address]
+    res_list = []
+    for i in receive_txs:
+        if i['address'] not in involved_addresses or i['txid'] in change_txids:
+            continue
+        res_list.append(i)
 
     lastblock = res['lastblock']
     check_lastblock_q = btc.DepositsLog.query.filter(
@@ -115,7 +91,7 @@ def get_recent_deposit_transactions(bt_name, confirmations=6, update_amounts=Tru
 
     sqla_session.commit()
 
-    return res_addresses
+    return res_list
 
 
 @_btc_dispatcher.add_method

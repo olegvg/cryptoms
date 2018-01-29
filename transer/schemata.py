@@ -1,7 +1,7 @@
 from schematics import types
 from schematics.models import Model
 
-from .types import CryptoCurrency, WithdrawalStatus
+from .types import CryptoCurrency, WithdrawalStatus, DepositStatus
 
 
 class ClaimWalletAddressResponse(Model):
@@ -23,3 +23,11 @@ class WithdrawResponse(Model):
 class WithdrawalStatusResponse(Model):
     tx_id = types.UUIDType(required=True)
     status = types.StringType(required=True, choices=[x.value for x in WithdrawalStatus])
+
+
+class DepositRequest(Model):
+    tx_id = types.UUIDType(required=True)
+    v = types.StringType(required=True)
+    amount = types.DecimalType(required=True)
+    currency = types.StringType(required=True, choices=[c.value for c in CryptoCurrency])
+    status = types.StringType(required=True, choices=[x.value for x in DepositStatus])
