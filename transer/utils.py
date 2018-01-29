@@ -162,7 +162,6 @@ def delayed_schedule(func, args=None, kwargs=None, interval=60, *, loop, executo
 
     async def periodic_func():
         while True:
-            print(args, kwargs)
             future = executor.submit(func, *args, **kwargs)
             await asyncio.wrap_future(future)
             await asyncio.sleep(interval, loop=loop)
