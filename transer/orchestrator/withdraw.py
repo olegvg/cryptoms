@@ -108,8 +108,8 @@ def withdraw_btc(u_txid, address, amount):
         sqla_session.commit()
         return crypto_transaction.status
 
-    u_txid_q = transaction.CryptoTransaction.query.filter(
-        transaction.CryptoTransaction.u_txid == u_txid
+    u_txid_q = transaction.CryptoWithdrawTransaction.query.filter(
+        transaction.CryptoWithdrawTransaction.u_txid == u_txid
     )
 
     try:
@@ -117,7 +117,7 @@ def withdraw_btc(u_txid, address, amount):
     except MultipleResultsFound as e:
         raise TransactionInconsistencyError(f'Multiple transaction records found for {u_txid}. Report the bug') from e
     except NoResultFound:
-        crypto_transaction = transaction.CryptoTransaction(
+        crypto_transaction = transaction.CryptoWithdrawTransaction(
             u_txid=u_txid,
             currency=CryptoCurrency.BITCOIN.value,
             status=WithdrawalStatus.PREPENDING.value

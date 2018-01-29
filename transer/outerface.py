@@ -57,8 +57,8 @@ async def withdraw_endpoint(request):
 async def withdrawal_status_endpoint(request):
     u_txid = request.match_info['u_txid']
 
-    crypto_transaction_q = transaction.CryptoTransaction.query.filter(
-        transaction.CryptoTransaction.u_txid == u_txid
+    crypto_transaction_q = transaction.CryptoWithdrawTransaction.query.filter(
+        transaction.CryptoWithdrawTransaction.u_txid == u_txid
     )
 
     try:
