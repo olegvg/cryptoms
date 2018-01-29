@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     daemon.run(
         db_uri='postgresql://ogaidukov@127.0.0.1:5432/btc_test',
-        listen_host='127.0.0.1',
+        listen_host='0.0.0.0',
         listen_port=8000,
         workers=10,
         btc_masterkey_name='btc_main',
