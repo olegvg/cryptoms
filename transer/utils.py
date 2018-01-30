@@ -1,3 +1,4 @@
+import traceback
 import sys
 import os.path
 import functools
@@ -118,7 +119,7 @@ def concurrent_fabric(executor):
     def json_rpc_handler_fabric(dispatcher):
         async def submitter(request):
             body = await request.text()
-            future = executor.submit(jsonrpc_handler, dispatcher, request.headers, body)
+            future = executor.submit(subprocess_wrapper, jsonrpc_handler, dispatcher, request.headers, body)
             return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
         return submitter
     return json_rpc_handler_fabric
@@ -162,7 +163,7 @@ def delayed_schedule(func, args=None, kwargs=None, interval=60, *, loop, executo
 
     async def periodic_func():
         while True:
-            future = executor.submit(func, *args, **kwargs)
+            future = executor.submit(subprocess_wrapper, func, *args, **kwargs)
             await asyncio.wrap_future(future)
             await asyncio.sleep(interval, loop=loop)
 
@@ -173,3 +174,20 @@ def create_delayed_scheduler(loop=None, executor=None):
     if loop is not None and executor is not None:
         return functools.partial(delayed_schedule, loop=loop, executor=executor)
     return None
+
+
+def subprocess_wrapper(func, *args, **kwargs):
+    # quite dumb sqlalcemy's Engine resetter, need more resource-saving approach
+    # same to https://github.com/olegvg/me-advert/blob/master/me-advert/backend/utils.py
+    engine = db.sqla_session.get_bind()
+    if engine is not None:
+        engine.dispose()
+    try:
+        res = func(*args, **kwargs)
+    except Exception as e:
+        # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
+        # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
+        root_multiprocessing_logger = logging.getLogger()
+        root_multiprocessing_logger.error(traceback.format_exc())
+        raise e
+    return res
