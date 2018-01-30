@@ -27,7 +27,7 @@ class WithdrawalStatusResponse(Model):
 
 class DepositRequest(Model):
     tx_id = types.UUIDType(required=True)
-    v = types.StringType(required=True)
+    wallet_addr = types.StringType(required=True)
     amount = types.DecimalType(required=True)
     currency = types.StringType(required=True, choices=[c.value for c in CryptoCurrency])
     status = types.StringType(required=True, choices=[x.value for x in DepositStatus])
