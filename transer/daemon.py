@@ -40,7 +40,7 @@ def run(db_uri, listen_host, listen_port, workers,
     app.router.add_post('/eth', handler_fabric(eth_dispatcher))
     app.router.add_post('/claim-wallet-addr/{currency}', outerface.claim_wallet_addr_endpoint)
     app.router.add_post('/withdraw', outerface.withdraw_endpoint)
-    app.router.add_post('/withdrawal-status/{u_txid}', outerface.withdrawal_status_endpoint)
+    app.router.add_get('/withdrawal-status/{u_txid}', outerface.withdrawal_status_endpoint)
 
     delayed_scheduler = create_delayed_scheduler(loop=async_loop, executor=executor)
     btc_deposit_monitor_task = delayed_scheduler(
