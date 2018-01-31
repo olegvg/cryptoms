@@ -1,8 +1,8 @@
 import json
 
-from aiohttp.web import json_response
+from aiohttp.web import json_response, Response
 
-from sqlalchemy.orm.exc import MultipleResultsFound
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 from transer import schemata
 from transer.db import transaction, sqla_session
@@ -16,7 +16,9 @@ async def claim_wallet_addr_endpoint(request):
 
     # strange redundant validator :-)
     if currency not in [x.value for x in CryptoCurrency]:
-        return json_response({'error': True, 'message': f'{currency} is wrong'})
+        resp = Response()
+        resp.set_status(404, f'Crypto currency ticker {currency} is not supported')
+        return resp
 
     handlers = {
         CryptoCurrency.BITCOIN.value: claim_wallet_addr.claim_btc_addr,
@@ -26,6 +28,11 @@ async def claim_wallet_addr_endpoint(request):
     handler_func = handlers.get(currency, lambda **_: WithdrawalStatus.FAILED.value)
 
     status = handler_func()
+
+    if status == WithdrawalStatus.FAILED.value:
+        resp = Response()
+        resp.set_status(404, f'Allocation of new address unsuccessful')
+        return resp
 
     return json_response(status)
 
@@ -48,6 +55,11 @@ async def withdraw_endpoint(request):
         amount=withdraw_req.amount
     )
 
+    if status == WithdrawalStatus.FAILED.value:
+        resp = Response()
+        resp.set_status(404, f'Withdrawal transaction ends unsuccessfully')
+        return resp
+
     resp_data = {'tx_id': data['tx_id'], 'status': status}
     withdraw_req = schemata.WithdrawResponse(resp_data)
     withdraw_req.validate()
@@ -64,10 +76,13 @@ async def withdrawal_status_endpoint(request):
     try:
         crypto_transaction = crypto_transaction_q.one()
     except MultipleResultsFound:
-        resp_data = {'tx_id': u_txid, 'status': WithdrawalStatus.FAILED.value}
-        withdraw_req = schemata.WithdrawResponse(resp_data)
-        withdraw_req.validate()
-        return json_response(resp_data)
+        resp = Response()
+        resp.set_status(500, f'Transaction {u_txid} has multiple statuses. Programming error.')
+        return resp
+    except NoResultFound:
+        resp = Response()
+        resp.set_status(404, f'Transaction {u_txid} is not found')
+        return resp
 
     handlers = {
         CryptoCurrency.BITCOIN.value: withdraw.withdrawal_status_btc,
@@ -76,6 +91,11 @@ async def withdrawal_status_endpoint(request):
     handler_func = handlers.get(crypto_transaction.currency, lambda **_: WithdrawalStatus.FAILED.value)
 
     status = handler_func(crypto_transaction.txids)
+
+    if status == WithdrawalStatus.FAILED.value:
+        resp = Response()
+        resp.set_status(404, f'Checking of transaction status ends unsuccessfully')
+        return resp
 
     crypto_transaction.status = status
     sqla_session.commit()
