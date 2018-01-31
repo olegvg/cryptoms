@@ -85,7 +85,7 @@ def periodic_send_deposit_btc():
     for t in unacknowledged_transactions:
 
         data = {
-            'tx_id': t.u_txid,
+            'tx_id': str(t.u_txid),
             'wallet_addr': t.address,
             'amount': t.amount,
             'currency': types.CryptoCurrency.BITCOIN.value,
