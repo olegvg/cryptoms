@@ -68,7 +68,7 @@ def recreate_entire_database(engine):
 
 
 def init_db(uri):
-    engine = create_engine(uri)
+    engine = create_engine(uri, pool_pre_ping=True)
 
     @event.listens_for(engine, "connect")
     def connect(dbapi_connection, connection_record):
