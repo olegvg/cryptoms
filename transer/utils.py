@@ -8,8 +8,8 @@ import asyncio
 import importlib.util
 from datetime import datetime
 
-from sqlalchemy import create_engine
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy import create_engine, event
+from sqlalchemy.exc import ProgrammingError, DisconnectionError
 
 from jsonrpc import JSONRPCResponseManager
 from jsonrpc.utils import DatetimeDecimalEncoder
@@ -69,6 +69,22 @@ def recreate_entire_database(engine):
 
 def init_db(uri):
     engine = create_engine(uri)
+
+    @event.listens_for(engine, "connect")
+    def connect(dbapi_connection, connection_record):
+        connection_record.info['pid'] = os.getpid()
+
+    @event.listens_for(engine, "checkout")
+    def checkout(dbapi_connection, connection_record, connection_proxy):
+        pid = os.getpid()
+        if connection_record.info['pid'] != pid:
+            connection_record.connection = connection_proxy.connection = None
+            raise DisconnectionError(
+                "Connection record belongs to pid %s, "
+                "attempting to check out in pid %s" %
+                (connection_record.info['pid'], pid)
+            )
+
     db.sqla_session.configure(bind=engine)
     db.meta.bind = engine
 
@@ -177,11 +193,7 @@ def create_delayed_scheduler(loop=None, executor=None):
 
 
 def subprocess_wrapper(func, *args, **kwargs):
-    # quite dumb sqlalcemy's Engine resetter, need more resource-saving approach
-    # same to https://github.com/olegvg/me-advert/blob/master/me-advert/backend/utils.py
-    engine = db.sqla_session.get_bind()
-    if engine is not None:
-        engine.dispose()
+    # Sqlalchemy's Engine to multiprocessing augmenter moved to init_db()
     try:
         res = func(*args, **kwargs)
     except Exception as e:
