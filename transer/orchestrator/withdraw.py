@@ -97,7 +97,7 @@ def withdraw_btc(u_txid, address, amount):
         )
 
         crypto_transaction.status = WithdrawalStatus.PENDING.value
-        create_transaction.txids = [txid]
+        crypto_transaction.txids = [txid]
 
         change_address_log = btc.ChangeTransactionLog(
             # change_address=change_address,
