@@ -21,4 +21,4 @@ class WithdrawalStatus(Enum):
 
     COMPLETED_CHARGED = 'COMPLETED_CHARGED'
 
-    ERROR = 'ERROR'
+    FAILED = 'FAILED'

@@ -28,7 +28,7 @@ def withdraw_btc(u_txid, address, amount):
         btc.Address.address == address
     ).count()
     if check_addr > 0:  # == 1 actually
-        return WithdrawalStatus.ERROR.value
+        return WithdrawalStatus.FAILED.value
 
     def brand_new_transacton():
         btcd_instance_name = config['btcd_instance_name']
@@ -66,9 +66,9 @@ def withdraw_btc(u_txid, address, amount):
             if estimate_amount >= amount + projected_fee:
                 break
         if estimate_amount < amount + projected_fee:
-            crypto_transaction.status = WithdrawalStatus.ERROR.value
+            crypto_transaction.status = WithdrawalStatus.FAILED.value
             sqla_session.commit()
-            return WithdrawalStatus.ERROR.value
+            return WithdrawalStatus.FAILED.value
 
         src_addresses = [x.address for x in src_address_objs]
 
@@ -141,7 +141,7 @@ def withdrawal_status_btc(txids):
 
     confirmations = tx_info['confirmations']
 
-    status = WithdrawalStatus.ERROR.value
+    status = WithdrawalStatus.FAILED.value
     if confirmations >= 6:
         status = WithdrawalStatus.COMPLETED.value
     elif confirmations >= 1:

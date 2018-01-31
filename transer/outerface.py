@@ -23,7 +23,7 @@ async def claim_wallet_addr_endpoint(request):
         CryptoCurrency.ETHERIUM.value: claim_wallet_addr.claim_eth_addr
     }
 
-    handler_func = handlers.get(currency, lambda **_: WithdrawalStatus.ERROR.name)
+    handler_func = handlers.get(currency, lambda **_: WithdrawalStatus.FAILED.value)
 
     status = handler_func()
 
@@ -40,7 +40,7 @@ async def withdraw_endpoint(request):
         CryptoCurrency.ETHERIUM.value: withdraw.withdraw_eth
     }
 
-    handler_func = handlers.get(data['currency'], lambda **_: WithdrawalStatus.ERROR.name)
+    handler_func = handlers.get(data['currency'], lambda **_: WithdrawalStatus.FAILED.value)
 
     status = handler_func(
         u_txid=withdraw_req.tx_id,
@@ -64,7 +64,7 @@ async def withdrawal_status_endpoint(request):
     try:
         crypto_transaction = crypto_transaction_q.one()
     except MultipleResultsFound:
-        resp_data = {'tx_id': u_txid, 'status': WithdrawalStatus.ERROR.value}
+        resp_data = {'tx_id': u_txid, 'status': WithdrawalStatus.FAILED.value}
         withdraw_req = schemata.WithdrawResponse(resp_data)
         withdraw_req.validate()
         return json_response(resp_data)
@@ -73,7 +73,7 @@ async def withdrawal_status_endpoint(request):
         CryptoCurrency.BITCOIN.value: withdraw.withdrawal_status_btc,
         CryptoCurrency.ETHERIUM.value: withdraw.withdrawal_status_eth
     }
-    handler_func = handlers.get(crypto_transaction.currency, lambda **_: WithdrawalStatus.ERROR.name)
+    handler_func = handlers.get(crypto_transaction.currency, lambda **_: WithdrawalStatus.FAILED.value)
 
     status = handler_func(crypto_transaction.txids)
 
