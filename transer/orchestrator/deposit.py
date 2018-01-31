@@ -87,7 +87,7 @@ def periodic_send_deposit_btc():
         data = {
             'tx_id': str(t.u_txid),
             'wallet_addr': t.address,
-            'amount': t.amount,
+            'amount': str(t.amount),
             'currency': types.CryptoCurrency.BITCOIN.value,
             'status': t.status
         }
