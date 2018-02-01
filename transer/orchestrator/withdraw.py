@@ -120,7 +120,7 @@ def withdraw_btc(u_txid, address, amount):
         crypto_transaction = transaction.CryptoWithdrawTransaction(
             u_txid=u_txid,
             currency=CryptoCurrency.BITCOIN.value,
-            status=WithdrawalStatus.PREPENDING.value
+            status=WithdrawalStatus.PENDING.value
 
         )
         sqla_session.add(crypto_transaction)
@@ -147,10 +147,8 @@ def withdrawal_status_btc(txids):
     status = WithdrawalStatus.FAILED.value
     if confirmations >= 6:
         status = WithdrawalStatus.COMPLETED.value
-    elif confirmations >= 1:
+    elif confirmations >= 0:
         status = WithdrawalStatus.PENDING.value
-    elif confirmations == 0:
-        status = WithdrawalStatus.PREPENDING.value
 
     return status
 
