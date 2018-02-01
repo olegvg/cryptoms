@@ -2,6 +2,7 @@ from datetime import datetime
 import logging
 
 from ethereum import utils as ethereum_utils
+from mnemonic import Mnemonic
 from sqlalchemy import Column, Integer, String, Unicode, DateTime, ForeignKey, UniqueConstraint, Float, desc
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import functions
@@ -38,6 +39,26 @@ class MasterKey(Base):
 
         self.masterkey_name = masterkey_name
         self.seed = seed
+
+    @staticmethod
+    def create_from_mnemonic(cls, masterkey_name, mnemonic):
+        """
+
+        :param cls: MasterKey class. Usually substituted automatically
+        :param masterkey_name: Human-readable name of master key
+        :param mnemonic: Mnemonic representation of key.
+            Usually, there are 12 words taken from special dict and separated with spaces.
+        :return:
+        """
+        seed = Mnemonic.to_seed(mnemonic)
+        seed_h = ethereum_utils.decode_hex(seed)
+        inst = cls(
+            masterkey_name=masterkey_name,
+            seed=seed_h
+        )
+        sqla_session.add(inst)
+        sqla_session.commit()
+        return inst
 
 
 class Address(Base):
