@@ -132,7 +132,10 @@ def withdraw_btc(u_txid, address, amount):
 
 def withdrawal_status_btc(txids):
     btcd_instance_name = config['btcd_instance_name']
-    txid = txids[0]  # in btc, only one txid per transaction
+    try:
+        txid = txids[0]  # in btc, only one txid per transaction
+    except (KeyError, TypeError):
+        return WithdrawalStatus.FAILED.value
 
     tx_info = get_txid_status(
         bt_name=btcd_instance_name,
