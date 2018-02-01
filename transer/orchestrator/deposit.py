@@ -9,6 +9,14 @@ from transer.db import btc, transaction
 from transer.exceptions import BtcMonitorTransactionException
 
 
+def add_confirmed_deposit(address, amount):
+    address_to_update_q = btc.Address.query.filter(
+        btc.Address.address == address
+    )
+    address_to_update = address_to_update_q.one()
+    address_to_update.amount += amount
+
+
 def periodic_check_deposit_btc():
     btcd_instance_name = config['btcd_instance_name']
 
@@ -18,9 +26,6 @@ def periodic_check_deposit_btc():
     recorded_transactions = recorded_transactions_q.all()
     for t in recorded_transactions:
         txid = t.txid
-        address = t.address
-        u_txid_seed = f'{address}.{txid}'
-        u_txid = uuid.uuid5(uuid.NAMESPACE_URL, u_txid_seed)
 
         try:
             tx_info = monitor_transaction.get_txid_status(
@@ -30,16 +35,13 @@ def periodic_check_deposit_btc():
         except BtcMonitorTransactionException:
             t.status = types.DepositStatus.CANCELLED.value    # in case of chain rebuilt
             t.is_acknowledged = False
-            print("2", u_txid, t.address, t.amount, t.status)
-            # loop.request ....
             continue
 
         confirmations = tx_info['confirmations']
         if confirmations >= 6:
+            add_confirmed_deposit(t.address, t.amount)
             t.status = types.DepositStatus.COMPLETED.value
             t.is_acknowledged = False
-            print("3", u_txid, address, t.amount, t.status)
-            # loop.request ....
 
     sqla_session.commit()
 
@@ -57,19 +59,21 @@ def periodic_check_deposit_btc():
         confirmations = t['confirmations']
         u_txid_seed = f'{address}.{txid}'
         u_txid = uuid.uuid5(uuid.NAMESPACE_URL, u_txid_seed)
-        status = types.DepositStatus.PENDING.value if confirmations < 6 else types.DepositStatus.COMPLETED.value
+        status = types.DepositStatus.PENDING if confirmations < 6 else types.DepositStatus.COMPLETED
         deposit_transaction = transaction.CryptoDepositTransaction(
             u_txid=u_txid,
             currency=types.CryptoCurrency.BITCOIN.value,
             address=address,
             amount=amount,
             txid=txid,
-            status=status,
+            status=status.value,
             is_acknowledged=False
         )
         sqla_session.add(deposit_transaction)
-        print("1", u_txid, address, amount, status)
-        # loop.request ....
+
+        if status == types.DepositStatus.COMPLETED:
+            add_confirmed_deposit(address, amount)
+
     sqla_session.commit()
 
 

@@ -105,6 +105,10 @@ def withdraw_btc(u_txid, address, amount):
         )
         sqla_session.add(change_address_log)
 
+        # all the funds move to change address
+        for a in src_addresses:
+            a.amount = decimal.Decimal(0.0)
+
         sqla_session.commit()
         return crypto_transaction.status
 
