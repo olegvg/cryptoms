@@ -39,6 +39,7 @@ def run(db_uri, listen_host, listen_port, workers,
     app.router.add_post('/btc', handler_fabric(btc_dispatcher))
     app.router.add_post('/eth', handler_fabric(eth_dispatcher))
     app.router.add_post('/claim-wallet-addr/{currency}', outerface.claim_wallet_addr_endpoint)
+    app.router.add_post('/reconcile/{currency}', outerface.reconcile_addresses_endpoint)
     app.router.add_post('/withdraw', outerface.withdraw_endpoint)
     app.router.add_get('/withdrawal-status/{u_txid}', outerface.withdrawal_status_endpoint)
 
@@ -82,18 +83,4 @@ def main():
         btcd_instance_name=btcd_instance_name,
         etcd_instance_uri=etcd_instance_uri,
         deposit_notification_endpoint=deposit_notification_endpoint
-    )
-
-
-if __name__ == '__main__':
-    run(
-        db_uri='postgresql://ogaidukov@127.0.0.1:55432/btc_test',
-        listen_host='127.0.0.1',
-        listen_port=8000,
-        workers=10,
-        btc_masterkey_name='btc_test',
-        eth_masterkey_name='eth_main',
-        btcd_instance_name='test_instance',
-        etcd_instance_uri='',
-        deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit'
     )

@@ -122,7 +122,7 @@ class Address(Base):
     crypto_number = Column(Integer)
 
     address = Column(String(35), index=True, unique=True)
-    # amount = Column(Numeric(precision=32, scale=24, asdecimal=True))
+    amount = Column(Numeric(precision=32, scale=24, asdecimal=True))
 
     timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
     is_populated = Column(Boolean, default=False)

@@ -1,4 +1,7 @@
 import json
+from functools import partial
+
+from jsonrpc.utils import DatetimeDecimalEncoder
 
 from aiohttp.web import json_response, Response
 
@@ -8,7 +11,7 @@ from transer import schemata
 from transer.db import transaction, sqla_session
 from transer.types import CryptoCurrency, WithdrawalStatus
 
-from transer.orchestrator import withdraw, claim_wallet_addr
+from transer.orchestrator import withdraw, claim_wallet_addr, reconciliation
 
 
 async def claim_wallet_addr_endpoint(request):
@@ -35,6 +38,31 @@ async def claim_wallet_addr_endpoint(request):
         return resp
 
     return json_response(status)
+
+
+async def reconcile_addresses_endpoint(request):
+    currency = request.match_info['currency']
+
+    # strange redundant validator :-)
+    if currency not in [x.value for x in CryptoCurrency]:
+        resp = Response()
+        resp.set_status(404, f'Crypto currency ticker {currency} is not supported')
+        return resp
+
+    handlers = {
+        CryptoCurrency.BITCOIN.value: reconciliation.reconcile_btc,
+    }
+
+    handler_func = handlers.get(currency, lambda **_: WithdrawalStatus.FAILED)
+    res = handler_func()
+
+    if res == WithdrawalStatus.FAILED:
+        resp = Response()
+        resp.set_status(404, f'Reconciliation is unsuccessful')
+        return resp
+
+    dumps = partial(json.dumps, cls=DatetimeDecimalEncoder)
+    return json_response({'actual_balances': res}, dumps=dumps)
 
 
 async def withdraw_endpoint(request):
