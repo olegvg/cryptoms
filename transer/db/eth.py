@@ -3,12 +3,12 @@ import logging
 
 from ethereum import utils as ethereum_utils
 from mnemonic import Mnemonic
-from sqlalchemy import Column, Integer, String, Unicode, DateTime, ForeignKey, UniqueConstraint, Float, desc
+from sqlalchemy import Column, Integer, String, Unicode, DateTime, ForeignKey, UniqueConstraint, Numeric, desc
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import functions
 
 from transer.ethereum_utils import bip44
-from transer.exceptions import EtcAddressCreationException
+from transer.exceptions import EthAddressCreationException
 from . import Base, sqla_session
 
 logger = logging.getLogger('db')
@@ -79,8 +79,8 @@ class Address(Base):
     # last component of key generating path e.g. for 66 it will be 44'/60'/0'/0/66
     crypto_number = Column(Integer)
 
-    address = Column(String(42), index=True, unique=True, default=0.0)
-    amount = Column(Float(precision=24, asdecimal=True))
+    address = Column(String(42), index=True, unique=True)
+    amount = Column(Numeric(precision=32, scale=24, asdecimal=True))
 
     timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
 
@@ -119,7 +119,7 @@ class Address(Base):
 
         exist_addrs = interested_addrs_q.count()
         if exist_addrs != 0:
-            raise EtcAddressCreationException(f'''trying to create existing
+            raise EthAddressCreationException(f'''trying to create existing
             addresses with {masterkey.pub_masterkey}:{crypto_path}/{from_crypto_num}-{from_crypto_num+num_addrs}''')
 
         seed_b = ethereum_utils.decode_hex(masterkey.seed)
@@ -138,14 +138,16 @@ class Address(Base):
                     crypto_path=crypto_path,
                     crypto_number=k,
                     timestamp=override_timestamp,
-                    address=address)
+                    address=address,
+                    amount=0.0)
                 )
             else:
                 instances.append(cls(
                     masterkey=masterkey,
                     crypto_path=crypto_path,
                     crypto_number=k,
-                    address=address)
+                    address=address,
+                    amount=0.0)
                 )
 
         sqla_session.add_all(instances)
@@ -184,3 +186,14 @@ class Address(Base):
             override_timestamp=override_timestamp
         )[0]
         return new_address
+
+
+class DepositsLog(Base):
+    __tablename__ = 'deposits_log_records'
+
+    __table_args__ = {
+        'schema': schema_prefix + 'public'
+    }
+    block_num = Column(Integer, index=True)
+    block_hash = Column(String(66), unique=True)
+    block_timestamp = Column(DateTime(timezone=True), index=True)

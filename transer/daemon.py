@@ -49,8 +49,13 @@ def run(db_uri, listen_host, listen_port, workers,
         interval=50
     )
 
-    btc_deposit_send_task = delayed_scheduler(
-        deposit.periodic_send_deposit_btc,
+    eth_deposit_monitor_task = delayed_scheduler(
+        deposit.periodic_check_deposit_eth,
+        interval=50
+    )
+
+    deposit_send_task = delayed_scheduler(
+        deposit.periodic_send_deposit,
         interval=50
     )
 

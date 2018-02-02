@@ -41,7 +41,11 @@ class EthAddressIntegrityException(ExceptionBaseClass):
     logger = logger
 
 
-class EtcAddressCreationException(ExceptionBaseClass):
+class EthAddressCreationException(ExceptionBaseClass):
+    logger = logger
+
+
+class EthMonitorTransactionException(ExceptionBaseClass):
     logger = logger
 
 
