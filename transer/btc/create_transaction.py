@@ -69,7 +69,7 @@ def raw_transaction_fee(bitcoind_inst, sources, destination, change=None, prefer
         raise BtcCreateTransactionException(f'Fee calculation is impossible because of errors: {e}')
 
     # kilobyte == 1000 bytes ^__^       https://en.wikipedia.org/wiki/Kilobyte
-    return decimal.Decimal(fee['feerate']) / 1000.0 * byte_size
+    return byte_size * fee['feerate'] / decimal.Decimal(1000.0)
 
 
 def create_raw_transaction(bitcoind_inst, sources, destination,
