@@ -103,7 +103,7 @@ def get_txid_status(bt_name, txid):
 
     bitcoind = bitcoind_inst.get_rpc_conn()
     try:
-        res = bitcoind.gettransaction(txid)
+        res = bitcoind.getrawtransaction(txid, True)
     except JSONRPCException as e:
         raise BtcMonitorTransactionException(str(e)) from e
 

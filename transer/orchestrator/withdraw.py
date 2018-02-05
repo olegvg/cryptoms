@@ -78,7 +78,6 @@ def withdraw_btc(u_txid, address, amount):
             change=change_address.address,
             preferred_blocks=5  # Anton don't like such numbers :-)
         )
-        print(projected_fee)
 
         src_address_objs = []
         for c in candidates:
@@ -129,11 +128,11 @@ def withdraw_btc(u_txid, address, amount):
         crypto_transaction.status = WithdrawalStatus.PENDING.value
         crypto_transaction.txids = [txid]
 
-        # change_address_log = btc.ChangeTransactionLog(
-        #     # change_address=change_address,
-        #     change_tx_id=txid
-        # )
-        # sqla_session.add(change_address_log)
+        change_address_log = btc.ChangeTransactionLog(
+            change_address=change_address.address,
+            change_tx_id=txid
+        )
+        sqla_session.add(change_address_log)
 
         # all the funds move to change address
         for a in src_address_objs:
@@ -156,12 +155,39 @@ def withdrawal_status_btc(crypto_transaction):
         txid=txid
     )
 
-    confirmations = tx_info['confirmations']
+    if crypto_transaction.status == WithdrawalStatus.COMPLETED.value:
+        return
+
+    try:
+        confirmations = tx_info['confirmations']
+    except KeyError as e:
+        if txid == tx_info['txid']:
+            crypto_transaction.status = WithdrawalStatus.PENDING.value
+            crypto_transaction.is_acknowledged = False
+            return
+        else:
+            raise TransactionInconsistencyError(f'Programming error with {txid}. Call the programmer') from e
 
     if confirmations >= 6 and crypto_transaction.status != WithdrawalStatus.COMPLETED.value:
         crypto_transaction.status = WithdrawalStatus.COMPLETED.value
         crypto_transaction.is_acknowledged = False
-    elif confirmations >= 0 and crypto_transaction.status != WithdrawalStatus.PENDING.value:
+
+        change_tx_q = btc.ChangeTransactionLog.query.filter(
+            btc.ChangeTransactionLog.change_tx_id == txid
+        )
+        change_tx = change_tx_q.one()
+
+        txs = tx_info['vout']
+        addrs = {t['scriptPubKey']['addresses'][0]: t['value'] for t in txs}
+
+        address_q = btc.Address.query.filter(
+            btc.Address.address == change_tx.change_address,
+            btc.Address.is_populated.is_(True)
+        )
+        address = address_q.one()
+        address.amount += addrs[change_tx.change_address]
+
+    elif confirmations > 0:
         crypto_transaction.status = WithdrawalStatus.PENDING.value
         crypto_transaction.is_acknowledged = False
 

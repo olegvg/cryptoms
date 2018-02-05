@@ -95,7 +95,7 @@ class ChangeTransactionLog(Base):
         'schema': schema_prefix + 'public'
     }
 
-    # change_address = Column(String(35), index=True)
+    change_address = Column(String(35), index=True)
     change_tx_id = Column(String(64), index=True, unique=True)
 
 

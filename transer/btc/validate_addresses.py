@@ -56,6 +56,7 @@ def validate_addrs(bitcoind_inst, addresses, confirmations=6,
     for i in res:
         addr = i['address']
         txid = i['txid']
+        vout = i['vout']
         amount = i['amount']
 
         if addr not in sources.keys():
@@ -64,7 +65,7 @@ def validate_addrs(bitcoind_inst, addresses, confirmations=6,
                     sources[addr]['address_inst'] = a
 
         txids = sources[addr].get('txids', list())
-        txids.append({'txid': txid, 'amount': amount})
+        txids.append({'txid': txid, 'amount': amount, 'vout': vout})
         sources[addr]['txids'] = txids
 
     txs = [i['txids'] for i in sources.values()]
