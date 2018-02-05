@@ -13,7 +13,7 @@ def send_raw_transaction(bitcoind_inst, signed_trx_h):
 
     :param bitcoind_inst: instance of btc.BitcoindInstance
     :param signed_trx_h: signed raw transaction as hex:str
-    :return: sent_trx -  отправленная транзакция в dict
+    :return: sent_txid -  txid отправленной транзакции
     """
 
     bitcoind = bitcoind_inst.get_rpc_conn()
@@ -33,7 +33,7 @@ def send_transaction(bt_name, signed_trx):
 
     :param bt_name: name to lookup in btc.BitcoindInstance, as str
     :param signed_trx: signed raw transaction as hex:str
-    :return: sent_trx -  отправленная транзакция в dict
+    :return: sent_txid -  txid отправленной транзакции
     """
 
     try:
