@@ -40,7 +40,7 @@ async def claim_wallet_addr_endpoint(request):
     return json_response(status)
 
 
-async def reconcile_addresses_endpoint(request):
+async def reconcile_addresses_endpoint(request, enforce=False):
     currency = request.match_info['currency']
 
     # strange redundant validator :-)
@@ -54,7 +54,7 @@ async def reconcile_addresses_endpoint(request):
     }
 
     handler_func = handlers.get(currency, lambda **_: WithdrawalStatus.FAILED)
-    res = handler_func()
+    res = handler_func(enforce=enforce)
 
     if res == WithdrawalStatus.FAILED:
         resp = Response()
