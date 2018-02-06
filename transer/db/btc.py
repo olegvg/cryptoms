@@ -2,6 +2,7 @@ from datetime import datetime
 import calendar
 import functools
 import logging
+import decimal
 
 from bitcoinrpc.authproxy import AuthServiceProxy
 from pycoin.key.BIP32Node import BIP32Node
@@ -122,7 +123,7 @@ class Address(Base):
     crypto_number = Column(Integer)
 
     address = Column(String(35), index=True, unique=True)
-    amount = Column(Numeric(precision=32, scale=24, asdecimal=True))
+    amount = Column(Numeric(precision=32, scale=24, asdecimal=True), default=decimal.Decimal(0.0))
 
     timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
     is_populated = Column(Boolean, default=False)
