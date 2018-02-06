@@ -32,7 +32,7 @@ def reconcile_addresses(bt_name, enforce=False, confirmations=6):
     addrs = addresses_q.all()
 
     if len(addrs) == 0:
-        return {'actual_balances': {}}
+        return {}
 
     if enforce is True:
         for addr in addrs:
