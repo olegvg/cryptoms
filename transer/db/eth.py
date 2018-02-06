@@ -25,7 +25,7 @@ class MasterKey(Base):
         {'schema': schema_prefix + 'private'}
     )
 
-    masterkey_name = Column(Unicode)   # человеческое имя порождающего мастер-ключа BIP32
+    masterkey_name = Column(Unicode, unique=True)   # человеческое имя порождающего мастер-ключа BIP32
     seed = Column(String(128), unique=True)
 
     def __init__(self, masterkey_name, seed):

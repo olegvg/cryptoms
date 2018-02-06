@@ -29,7 +29,7 @@ class MasterKey(Base):
         {'schema': schema_prefix + 'private'}
     )
 
-    masterkey_name = Column(Unicode)   # человеческое имя порождающего мастер-ключа BIP32
+    masterkey_name = Column(Unicode, unique=True)   # человеческое имя порождающего мастер-ключа BIP32
     priv_masterkey = Column(String(111), unique=True)
     pub_masterkey = Column(String(111), unique=True)
     treat_as_testnet = Column(Boolean, default=False)
