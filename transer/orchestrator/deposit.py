@@ -2,6 +2,8 @@ import uuid
 import urllib3
 import json
 
+import certifi
+
 from transer import types, config, schemata
 from transer.btc import monitor_transaction as btc_mon
 from transer.eth import monitor_transaction as eth_mon
@@ -86,7 +88,10 @@ def periodic_send_deposit():
     )
     unacknowledged_transactions = unacknowledged_transactions_q.all()
 
-    http = urllib3.PoolManager()
+    http = urllib3.PoolManager(
+        ca_certs=certifi.where(),
+        cert_reqs='CERT_REQUIRED'
+    )
     for t in unacknowledged_transactions:
 
         data = {
