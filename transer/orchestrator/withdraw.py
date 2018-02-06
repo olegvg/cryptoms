@@ -1,8 +1,13 @@
 import decimal
+import json
+
+import certifi
+import urllib3
+
 from sqlalchemy import desc
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
-from transer import config
+from transer import config, types, schemata
 from transer.exceptions import TransactionInconsistencyError
 from transer.db import eth, btc, transaction, sqla_session
 from transer.types import CryptoCurrency, WithdrawalStatus
@@ -37,13 +42,15 @@ def withdraw_btc(u_txid, address, amount):
         crypto_transaction = u_txid_q.one()
         return crypto_transaction.status
     except MultipleResultsFound as e:
+        sqla_session.rollback()
         raise TransactionInconsistencyError(f'Multiple transaction records found for {u_txid}. Report the bug') from e
     except NoResultFound:
         crypto_transaction = transaction.CryptoWithdrawTransaction(
             u_txid=u_txid,
             currency=CryptoCurrency.BITCOIN.value,
+            address=sqla_session,
+            amount=amount,
             status=WithdrawalStatus.FAILED.value
-
         )
         sqla_session.add(crypto_transaction)
 
@@ -166,6 +173,7 @@ def withdrawal_status_btc(crypto_transaction):
             crypto_transaction.is_acknowledged = False
             return
         else:
+            sqla_session.rollback()
             raise TransactionInconsistencyError(f'Programming error with {txid}. Call the programmer') from e
 
     if confirmations >= 6 and crypto_transaction.status != WithdrawalStatus.COMPLETED.value:
@@ -190,6 +198,62 @@ def withdrawal_status_btc(crypto_transaction):
     elif confirmations > 0:
         crypto_transaction.status = WithdrawalStatus.PENDING.value
         crypto_transaction.is_acknowledged = False
+
+
+def periodic_check_withdraw_btc():
+    crypto_transaction_q = transaction.CryptoWithdrawTransaction.query.filter(
+        transaction.CryptoWithdrawTransaction.status == types.WithdrawalStatus.PENDING.value
+    )
+
+    crypto_transactions = crypto_transaction_q.all()
+
+    for cw_trx in crypto_transactions:
+        withdrawal_status_btc(cw_trx)
+
+    sqla_session.commit()
+
+
+def periodic_send_withdraw():
+    withdraw_notification_endpoint = config['withdraw_notification_endpoint']
+
+    unacknowledged_transactions_q = transaction.CryptoWithdrawTransaction.query.filter(
+        transaction.CryptoWithdrawTransaction.is_acknowledged.is_(False)
+    )
+    unacknowledged_transactions = unacknowledged_transactions_q.all()
+
+    http = urllib3.PoolManager(
+        ca_certs=certifi.where(),
+        cert_reqs='CERT_REQUIRED'
+    )
+    for t in unacknowledged_transactions:
+
+        data = {
+            'tx_id': str(t.u_txid),
+            'wallet_addr': t.address,
+            'amount': str(t.amount),
+            'currency': t.currency,
+            'status': t.status
+        }
+
+        withdraw_req = schemata.DepositRequest(data)
+        withdraw_req.validate()
+
+        encoded_data = json.dumps(data).encode('utf-8')
+        try:
+            resp = http.request(
+                'POST',
+                withdraw_notification_endpoint,
+                body=encoded_data,
+                headers={'Content-Type': 'application/json'},
+                retries=10
+            )
+        except urllib3.exceptions.HTTPError:
+            pass
+        else:
+            if resp.status in [200, 201]:
+                t.is_acknowledged = True
+
+    sqla_session.commit()
 
 
 def withdraw_eth(u_txid, address, amount):

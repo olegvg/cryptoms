@@ -1,4 +1,5 @@
 import logging
+import decimal
 
 from sqlalchemy import Column, String, DateTime, Numeric, Boolean
 from sqlalchemy.sql import functions
@@ -23,7 +24,9 @@ class CryptoWithdrawTransaction(Base):
 
     u_txid = Column(UUID(as_uuid=True), unique=True)
     currency = Column(ENUM(*[x.value for x in types.CryptoCurrency], name='currency'))
+    address = Column(String, index=True)
     txids = Column(ARRAY(String))
+    amount = Column(Numeric(precision=32, scale=24, asdecimal=True), default=decimal.Decimal(0.0))
     status = Column(ENUM(*[x.value for x in types.WithdrawalStatus],
                          name='crypto_withdraw_transaction_status'),
                     index=True)
@@ -42,7 +45,7 @@ class CryptoDepositTransaction(Base):
     currency = Column(ENUM(*[x.value for x in types.CryptoCurrency], name='currency'), index=True)
     address = Column(String, index=True)
     txid = Column(String, index=True)
-    amount = Column(Numeric(precision=32, scale=24, asdecimal=True))
+    amount = Column(Numeric(precision=32, scale=24, asdecimal=True), default=decimal.Decimal(0.0))
     status = Column(ENUM(*[x.value for x in types.DepositStatus],
                          name='crypto_deposit_transaction_status'),
                     index=True)

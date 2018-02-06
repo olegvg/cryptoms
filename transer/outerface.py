@@ -116,12 +116,12 @@ async def withdrawal_status_endpoint(request):
 
     handler_func(crypto_transaction)
 
+    sqla_session.commit()
+
     if crypto_transaction.status == WithdrawalStatus.FAILED.value:
         resp = Response()
         resp.set_status(404, f'Checking of transaction status ends unsuccessfully')
         return resp
-
-    sqla_session.commit()
 
     resp_data = {'tx_id': u_txid, 'status': crypto_transaction.status}
     withdraw_req = schemata.WithdrawResponse(resp_data)

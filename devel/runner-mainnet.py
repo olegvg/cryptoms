@@ -17,7 +17,8 @@ if __name__ == '__main__':
         btc_masterkey_name='btc_main',
         eth_masterkey_name='eth_main',
         btcd_instance_name='main_instance',
-        etcd_instance_uri='http://127.0.0.1:8545',
-        deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit'
+        etcd_instance_uri='http://127.0.0.1:48545',
+        deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit',
+        withdraw_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/withdraw'
     )
 

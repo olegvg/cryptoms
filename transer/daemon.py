@@ -8,7 +8,7 @@ from transer.utils import concurrent_fabric, init_db, create_delayed_scheduler, 
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
 from transer.eth import init_eth
-from transer.orchestrator import deposit
+from transer.orchestrator import deposit, withdraw
 
 from transer import outerface
 from transer import config
@@ -17,7 +17,7 @@ from transer import config
 def run(db_uri, listen_host, listen_port, workers,
         btc_masterkey_name, eth_masterkey_name,
         btcd_instance_name, etcd_instance_uri,
-        deposit_notification_endpoint):
+        deposit_notification_endpoint, withdraw_notification_endpoint):
 
     config['eth_masterkey_name'] = eth_masterkey_name
     config['btc_masterkey_name'] = btc_masterkey_name
@@ -26,6 +26,7 @@ def run(db_uri, listen_host, listen_port, workers,
     config['btcd_instance_name'] = btcd_instance_name
 
     config['deposit_notification_endpoint'] = deposit_notification_endpoint
+    config['withdraw_notification_endpoint'] = withdraw_notification_endpoint
 
     async_loop = asyncio.get_event_loop()
     app = web.Application()
@@ -46,6 +47,7 @@ def run(db_uri, listen_host, listen_port, workers,
     app.router.add_get('/withdrawal-status/{u_txid}', outerface.withdrawal_status_endpoint)
 
     delayed_scheduler = create_delayed_scheduler(loop=async_loop, executor=executor)
+
     btc_deposit_monitor_task = delayed_scheduler(
         deposit.periodic_check_deposit_btc,
         interval=50
@@ -61,6 +63,11 @@ def run(db_uri, listen_host, listen_port, workers,
         interval=50
     )
 
+    btc_withdraw_monitor_task = delayed_scheduler(
+        withdraw.periodic_check_withdraw_btc,
+        interval=50
+    )
+
     web.run_app(app, host=listen_host, port=listen_port, loop=async_loop)
 
 
@@ -70,7 +77,8 @@ def main():
 
     btcd_instance_name = environ['T_BTCD_INSTANCE_NAME']
     etcd_instance_uri = environ['T_ETCD_INSTANCE_URI']
-    deposit_notification_endpoint = environ['T_DEPOSIT_NOTOFICATION_ENDPOINT']
+    deposit_notification_endpoint = environ['T_DEPOSIT_NOTIFICATION_ENDPOINT']
+    withdraw_notification_endpoint = environ['T_WITHDRAW_NOTIFICATION_ENDPOINT']
 
     try:
         db_uri = environ['T_DB_URI']
@@ -89,5 +97,6 @@ def main():
         eth_masterkey_name=eth_masterkey_name,
         btcd_instance_name=btcd_instance_name,
         etcd_instance_uri=etcd_instance_uri,
-        deposit_notification_endpoint=deposit_notification_endpoint
+        deposit_notification_endpoint=deposit_notification_endpoint,
+        withdraw_notification_endpoint=withdraw_notification_endpoint
     )
