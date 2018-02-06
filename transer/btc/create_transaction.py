@@ -99,8 +99,7 @@ def create_raw_transaction(bitcoind_inst, sources, destination,
         raise BtcCreateTransactionException(f'insufficient amount of funds in sources {sources}')
 
     txs = [i['txids'] for i in detailed_srcs.values()]
-    txids = {j['vout']: j['txid'] for k in txs for j in k}
-    utxos = [{'vout': i, 'txid': txids[i]} for i in txids]
+    utxos = [{'vout': j['vout'], 'txid': j['txid']} for k in txs for j in k]
 
     outs = {destination: amount}
     if total > amount + fee:
