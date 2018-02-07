@@ -76,7 +76,7 @@ def get_recent_deposit_transactions(web3_url):
     top_block_num = top_block['number']
 
     if top_block_num == bottom_block_num:
-        return
+        return []
 
     top_block_obj = eth.DepositsLog(
         block_num=top_block_num,
