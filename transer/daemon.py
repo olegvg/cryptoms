@@ -16,13 +16,13 @@ from transer import config
 
 def run(db_uri, listen_host, listen_port, workers,
         btc_masterkey_name, eth_masterkey_name,
-        btcd_instance_name, etcd_instance_uri,
+        btcd_instance_name, ethd_instance_uri,
         deposit_notification_endpoint, withdraw_notification_endpoint):
 
     config['eth_masterkey_name'] = eth_masterkey_name
     config['btc_masterkey_name'] = btc_masterkey_name
 
-    config['etcd_instance_uri'] = etcd_instance_uri
+    config['ethd_instance_uri'] = ethd_instance_uri
     config['btcd_instance_name'] = btcd_instance_name
 
     config['deposit_notification_endpoint'] = deposit_notification_endpoint
@@ -81,7 +81,7 @@ def main():
     eth_masterkey_name = environ['T_ETH_MASTERKEY_NAME']
 
     btcd_instance_name = environ['T_BTCD_INSTANCE_NAME']
-    etcd_instance_uri = environ['T_ETCD_INSTANCE_URI']
+    ethd_instance_uri = environ['T_ETHD_INSTANCE_URI']
     deposit_notification_endpoint = environ['T_DEPOSIT_NOTIFICATION_ENDPOINT']
     withdraw_notification_endpoint = environ['T_WITHDRAW_NOTIFICATION_ENDPOINT']
 
@@ -101,7 +101,7 @@ def main():
         btc_masterkey_name=btc_masterkey_name,
         eth_masterkey_name=eth_masterkey_name,
         btcd_instance_name=btcd_instance_name,
-        etcd_instance_uri=etcd_instance_uri,
+        ethd_instance_uri=ethd_instance_uri,
         deposit_notification_endpoint=deposit_notification_endpoint,
         withdraw_notification_endpoint=withdraw_notification_endpoint
     )

@@ -132,7 +132,7 @@ def add_confirmed_deposit_eth(address, amount):
 
 
 def periodic_check_deposit_eth():
-    etcd_instance_uri = config['etcd_instance_uri']
+    ethd_instance_uri = config['ethd_instance_uri']
 
     recorded_transactions_q = transaction.CryptoDepositTransaction.query.filter(
         transaction.CryptoDepositTransaction.status == types.DepositStatus.PENDING.value,
@@ -144,7 +144,7 @@ def periodic_check_deposit_eth():
 
         try:
             tx_info = eth_mon.get_transaction(
-                web3_url=etcd_instance_uri,
+                web3_url=ethd_instance_uri,
                 tx_hash=tx_hash
             )
         except EthMonitorTransactionException:
@@ -160,7 +160,7 @@ def periodic_check_deposit_eth():
 
     sqla_session.commit()
 
-    deposits = eth_mon.get_recent_deposit_transactions(etcd_instance_uri)
+    deposits = eth_mon.get_recent_deposit_transactions(ethd_instance_uri)
 
     for address in deposits:
         for tx in deposits[address]:

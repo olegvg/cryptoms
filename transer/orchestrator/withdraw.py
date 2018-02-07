@@ -309,10 +309,10 @@ def withdraw_eth(u_txid, address, amount):
         )
         sqla_session.add(crypto_transaction)
 
-        etcd_instance_uri = config['etcd_instance_uri']
+        ethd_instance_uri = config['ethd_instance_uri']
         eth_masterkey_name = config['eth_masterkey_name']
 
-        gas_price = eth_current_gas_price(etcd_instance_uri)
+        gas_price = eth_current_gas_price(ethd_instance_uri)
         fee = TRANSACTION_GAS * gas_price
 
         masterkey_q = eth.MasterKey.query.filter(
@@ -349,7 +349,7 @@ def withdraw_eth(u_txid, address, amount):
         tx_ids = []
         for s, a in spendables.items():
             utx_h = eth_create_transaction(
-                web3_url=etcd_instance_uri,
+                web3_url=ethd_instance_uri,
                 src_addr=s.address,
                 dst_addr=address,
                 amount=a,
@@ -364,7 +364,7 @@ def withdraw_eth(u_txid, address, amount):
             )
 
             tx_id = eth_send_transaction(
-                web3_url=etcd_instance_uri,
+                web3_url=ethd_instance_uri,
                 signed_tx_h=stx_h
             )
             tx_ids.append(tx_id)
@@ -377,13 +377,13 @@ def withdraw_eth(u_txid, address, amount):
 
 
 def withdrawal_status_eth(crypto_transaction):
-    etcd_instance_uri = config['etcd_instance_uri']
+    ethd_instance_uri = config['ethd_instance_uri']
     txids = crypto_transaction.txids
 
     complete_c = len(txids)
     for txid in txids[:]:
         try:
-            tx = eth_get_transaction(web3_url=etcd_instance_uri, tx_hash=txid)
+            tx = eth_get_transaction(web3_url=ethd_instance_uri, tx_hash=txid)
         except EthMonitorTransactionException:
             # one of transactions was unsuccessful / disappeared so there is partial withdrawing
             # and payment transaction will remain PENDING until manual investigation
