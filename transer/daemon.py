@@ -68,6 +68,11 @@ def run(db_uri, listen_host, listen_port, workers,
         interval=50
     )
 
+    eth_withdraw_monitor_task = delayed_scheduler(
+        withdraw.periodic_check_withdraw_eth,
+        interval=50
+    )
+
     web.run_app(app, host=listen_host, port=listen_port, loop=async_loop)
 
 

@@ -25,7 +25,8 @@ class CryptoWithdrawTransaction(Base):
     u_txid = Column(UUID(as_uuid=True), unique=True)
     currency = Column(ENUM(*[x.value for x in types.CryptoCurrency], name='currency'))
     address = Column(String, index=True)
-    txids = Column(ARRAY(String))
+    txids = Column(ARRAY(String), default=[])
+    completed_txids = Column(ARRAY(String), default=[])
     amount = Column(Numeric(precision=32, scale=24, asdecimal=True), default=decimal.Decimal(0.0))
     status = Column(ENUM(*[x.value for x in types.WithdrawalStatus],
                          name='crypto_withdraw_transaction_status'),

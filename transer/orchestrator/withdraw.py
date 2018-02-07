@@ -4,17 +4,27 @@ import json
 import certifi
 import urllib3
 
-from sqlalchemy import desc
+from sqlalchemy import desc, asc
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 from transer import config, types, schemata
-from transer.exceptions import TransactionInconsistencyError
+from transer.exceptions import TransactionInconsistencyError, EthMonitorTransactionException
 from transer.db import eth, btc, transaction, sqla_session
 from transer.types import CryptoCurrency, WithdrawalStatus
-from transer.btc.create_transaction import calculate_transaction_fee, create_transaction
-from transer.btc.sign_transaction import sign_transaction
-from transer.btc.send_transaction import send_transaction
-from transer.btc.monitor_transaction import get_txid_status
+
+from transer.btc.create_transaction import calculate_transaction_fee as btc_calculate_transaction_fee
+from transer.btc.create_transaction import create_transaction as btc_create_transaction
+from transer.btc.sign_transaction import sign_transaction as btc_sign_transaction
+from transer.btc.send_transaction import send_transaction as btc_send_transaction
+from transer.btc.monitor_transaction import get_txid_status as btc_get_txid_status
+
+from transer.eth.create_transaction import current_gas_price as eth_current_gas_price
+from transer.eth.create_transaction import create_transaction as eth_create_transaction
+from transer.eth.sign_transaction import sign_transaction as eth_sign_transaction
+from transer.eth.send_transaction import send_transaction as eth_send_transaction
+from transer.eth.monitor_transaction import get_transaction as eth_get_transaction
+from transer.eth.create_transaction import TRANSACTION_GAS
+from transer.eth import eth_divider
 
 
 def withdraw_btc(u_txid, address, amount):
@@ -79,7 +89,7 @@ def withdraw_btc(u_txid, address, amount):
 
         estimate_amount = decimal.Decimal(0.0)
 
-        projected_fee = calculate_transaction_fee(
+        projected_fee = btc_calculate_transaction_fee(
             bt_name=btcd_instance_name,
             sources=[c.address for c in candidates], destination=address,
             change=change_address.address,
@@ -93,14 +103,14 @@ def withdraw_btc(u_txid, address, amount):
             if estimate_amount > amount + projected_fee:
                 break
         if estimate_amount < amount + projected_fee:
-            crypto_transaction.status = WithdrawalStatus.FAILED.value
+            # Insufficient funds
             sqla_session.commit()
-            return WithdrawalStatus.FAILED.value
+            return crypto_transaction.status
 
         src_addresses = [x.address for x in src_address_objs]
 
         # Equation 'projected_fee >= actual_fee' is always true
-        actual_fee = calculate_transaction_fee(
+        actual_fee = btc_calculate_transaction_fee(
             bt_name=btcd_instance_name,
             sources=[src_addresses],
             destination=address,
@@ -108,7 +118,7 @@ def withdraw_btc(u_txid, address, amount):
             preferred_blocks=5  # Anton don't like such numbers :-)
         )
 
-        trx, _ = create_transaction(
+        trx, _ = btc_create_transaction(
             bt_name=bitcoind_inst.instance_name,
             sources=src_addresses,
             destination=address,
@@ -117,7 +127,7 @@ def withdraw_btc(u_txid, address, amount):
             fee=actual_fee
         )
 
-        signed_trx, _ = sign_transaction(
+        signed_trx, _ = btc_sign_transaction(
             bt_name=bitcoind_inst.instance_name,
             signing_addrs=src_addresses,
             trx=trx
@@ -127,7 +137,7 @@ def withdraw_btc(u_txid, address, amount):
         # and monitor_transaction.get_recent_deposit_transactions(), if get_recent_deposit_transactions() taken
         # into account transactions with num of confirmations equals to 0 (mempool/unconfirmed transactions).
         # Doesn't actual condition now
-        txid = send_transaction(
+        txid = btc_send_transaction(
             bt_name=bitcoind_inst.instance_name,
             signed_trx=signed_trx
         )
@@ -157,7 +167,7 @@ def withdrawal_status_btc(crypto_transaction):
     except (KeyError, TypeError):
         return WithdrawalStatus.FAILED.value
 
-    tx_info = get_txid_status(
+    tx_info = btc_get_txid_status(
         bt_name=btcd_instance_name,
         txid=txid
     )
@@ -202,13 +212,28 @@ def withdrawal_status_btc(crypto_transaction):
 
 def periodic_check_withdraw_btc():
     crypto_transaction_q = transaction.CryptoWithdrawTransaction.query.filter(
-        transaction.CryptoWithdrawTransaction.status == types.WithdrawalStatus.PENDING.value
+        transaction.CryptoWithdrawTransaction.status == types.WithdrawalStatus.PENDING.value,
+        transaction.CryptoWithdrawTransaction.currency == types.CryptoCurrency.BITCOIN.value
     )
 
     crypto_transactions = crypto_transaction_q.all()
 
     for cw_trx in crypto_transactions:
         withdrawal_status_btc(cw_trx)
+
+    sqla_session.commit()
+
+
+def periodic_check_withdraw_eth():
+    crypto_transaction_q = transaction.CryptoWithdrawTransaction.query.filter(
+        transaction.CryptoWithdrawTransaction.status == types.WithdrawalStatus.PENDING.value,
+        transaction.CryptoWithdrawTransaction.currency == types.CryptoCurrency.ETHERIUM.value
+    )
+
+    crypto_transactions = crypto_transaction_q.all()
+
+    for cw_trx in crypto_transactions:
+        withdrawal_status_eth(cw_trx)
 
     sqla_session.commit()
 
@@ -264,8 +289,114 @@ def withdraw_eth(u_txid, address, amount):
     :param amount: объём битокойнов
     :return:
     """
-    pass
+    u_txid_q = transaction.CryptoWithdrawTransaction.query.filter(
+        transaction.CryptoWithdrawTransaction.u_txid == u_txid
+    )
+
+    try:
+        crypto_transaction = u_txid_q.one()
+        return crypto_transaction.status
+    except MultipleResultsFound as e:
+        sqla_session.rollback()
+        raise TransactionInconsistencyError(f'Multiple transaction records found for {u_txid}. Report the bug') from e
+    except NoResultFound:
+        crypto_transaction = transaction.CryptoWithdrawTransaction(
+            u_txid=u_txid,
+            currency=CryptoCurrency.ETHERIUM.value,
+            address=address,
+            amount=amount,
+            status=WithdrawalStatus.FAILED.value
+        )
+        sqla_session.add(crypto_transaction)
+
+        etcd_instance_uri = config['etcd_instance_uri']
+        eth_masterkey_name = config['eth_masterkey_name']
+
+        gas_price = eth_current_gas_price(etcd_instance_uri)
+        fee = TRANSACTION_GAS * gas_price
+
+        masterkey_q = eth.MasterKey.query.filter(
+            eth.MasterKey.masterkey_name == eth_masterkey_name
+        )
+        masterkey = masterkey_q.one()
+
+        ordered_adresses_q = eth.Address.query.filter(
+            eth.Address.masterkey == masterkey,
+            eth.Address.address != address,
+            eth.Address.amount > fee    # don't dive into gold sand
+        ).order_by(asc(eth.Address.amount))
+        candidates = ordered_adresses_q.all()
+
+        approx_amount = amount
+        spendables = {}
+        for c in candidates:
+            remain_amount = c.amount - fee
+            withdraw_amount = remain_amount if remain_amount < approx_amount else approx_amount
+
+            if withdraw_amount < fee:   # prevent weird spending transactions with amount less than fee
+                break
+
+            approx_amount -= withdraw_amount
+            spendables[c] = withdraw_amount
+
+            if approx_amount == decimal.Decimal(0.0):
+                break
+        else:
+            # Insufficient funds
+            sqla_session.commit()
+            return crypto_transaction.status
+
+        tx_ids = []
+        for s, a in spendables.items():
+            utx_h = eth_create_transaction(
+                web3_url=etcd_instance_uri,
+                src_addr=s.address,
+                dst_addr=address,
+                amount=a,
+                gas_price=gas_price
+            )
+
+            stx_h = eth_sign_transaction(
+                src_addr=s.address,
+                priv_key=s.get_priv_key(),
+                unsigned_tx_h=utx_h,
+                network_id=masterkey.network_id
+            )
+
+            tx_id = eth_send_transaction(
+                web3_url=etcd_instance_uri,
+                signed_tx_h=stx_h
+            )
+            tx_ids.append(tx_id)
+
+        crypto_transaction.txids = tx_ids
+        crypto_transaction.status = types.WithdrawalStatus.PENDING.value
+
+        sqla_session.commit()
+        return crypto_transaction.status
 
 
-def withdrawal_status_eth(txids):
-    pass
+def withdrawal_status_eth(crypto_transaction):
+    etcd_instance_uri = config['etcd_instance_uri']
+    txids = crypto_transaction.txids
+
+    complete_c = len(txids)
+    for txid in txids[:]:
+        try:
+            tx = eth_get_transaction(web3_url=etcd_instance_uri, tx_hash=txid)
+        except EthMonitorTransactionException:
+            # one of transactions was unsuccessful / disappeared so there is partial withdrawing
+            # and payment transaction will remain PENDING until manual investigation
+            pass
+        if tx['confirmations'] >= 12:
+            address = eth.Address.query.filter(
+                eth.Address.address == tx['from'].lower()
+            ).one()
+            address.amount -= tx['value'] / eth_divider
+
+            complete_c -= 1
+            crypto_transaction.completed_txids.append(tx)
+            txids.remove(txid)
+
+    if complete_c == 0:
+        crypto_transaction.status = types.WithdrawalStatus.COMPLETED.value
