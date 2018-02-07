@@ -378,10 +378,11 @@ def withdraw_eth(u_txid, address, amount):
 
 def withdrawal_status_eth(crypto_transaction):
     ethd_instance_uri = config['ethd_instance_uri']
-    txids = crypto_transaction.txids
+    pending_txids = crypto_transaction.txids[:]
+    completed_txids = crypto_transaction.completed_txids[:]
 
-    complete_c = len(txids)
-    for txid in txids[:]:
+    complete_c = len(pending_txids)
+    for txid in pending_txids[:]:
         try:
             tx = eth_get_transaction(web3_url=ethd_instance_uri, tx_hash=txid)
         except EthMonitorTransactionException:
@@ -395,8 +396,13 @@ def withdrawal_status_eth(crypto_transaction):
             address.amount -= tx['value'] / eth_divider
 
             complete_c -= 1
-            crypto_transaction.completed_txids.append(tx)
-            txids.remove(txid)
+            completed_txids.append(txid)
+            pending_txids.remove(txid)
+
+    # deep update whole sqla.ARRAY as alternative
+    # to Mutation Tracking http://docs.sqlalchemy.org/en/latest/orm/extensions/mutable.html
+    crypto_transaction.completed_txids = completed_txids
+    crypto_transaction.txids = pending_txids
 
     if complete_c == 0:
         crypto_transaction.status = types.WithdrawalStatus.COMPLETED.value
