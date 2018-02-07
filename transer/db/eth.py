@@ -27,8 +27,9 @@ class MasterKey(Base):
 
     masterkey_name = Column(Unicode, unique=True)   # человеческое имя порождающего мастер-ключа BIP32
     seed = Column(String(128), unique=True)
+    network_id = Column(Integer, default=1)
 
-    def __init__(self, masterkey_name, seed):
+    def __init__(self, masterkey_name, seed, network_id=1):
         """
 
         :param masterkey_name:
@@ -39,6 +40,7 @@ class MasterKey(Base):
 
         self.masterkey_name = masterkey_name
         self.seed = seed
+        self.network_id = network_id
 
     @staticmethod
     def create_from_mnemonic(cls, masterkey_name, mnemonic):
@@ -51,7 +53,7 @@ class MasterKey(Base):
         :return:
         """
         seed = Mnemonic.to_seed(mnemonic)
-        seed_h = ethereum_utils.decode_hex(seed)
+        seed_h = ethereum_utils.encode_hex(seed)
         inst = cls(
             masterkey_name=masterkey_name,
             seed=seed_h
@@ -91,9 +93,7 @@ class Address(Base):
         path_key = bip44.HDKey.from_path(bip44_masterkey, self.crypto_path)[-1]
 
         key = bip44.HDKey.from_path(path_key, str(self.crypto_number))[-1]
-        address = key.public_key.address()
-
-        return address
+        return key._key.to_hex()  # pylint: disable=W0212
 
     @classmethod
     def create_addresses(cls, masterkey, from_crypto_num, num_addrs,
