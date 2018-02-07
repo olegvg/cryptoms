@@ -48,7 +48,7 @@ def withdraw_btc(u_txid, address, amount):
         crypto_transaction = transaction.CryptoWithdrawTransaction(
             u_txid=u_txid,
             currency=CryptoCurrency.BITCOIN.value,
-            address=sqla_session,
+            address=address,
             amount=amount,
             status=WithdrawalStatus.FAILED.value
         )
