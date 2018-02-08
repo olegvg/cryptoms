@@ -1,13 +1,14 @@
 import json
 from functools import partial
 
+import certifi
+import urllib3
 from jsonrpc.utils import DatetimeDecimalEncoder
-
 from aiohttp.web import json_response, Response
 
-from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.orm.exc import NoResultFound
 
-from transer import schemata
+from transer import schemata, config
 from transer.db import transaction, sqla_session
 from transer.types import CryptoCurrency, WithdrawalStatus
 
@@ -127,3 +128,85 @@ async def withdrawal_status_endpoint(request):
     withdraw_req = schemata.WithdrawResponse(resp_data)
     withdraw_req.validate()
     return json_response(resp_data)
+
+
+def periodic_send_withdraw():
+    withdraw_notification_endpoint = config['withdraw_notification_endpoint']
+
+    unacknowledged_transactions_q = transaction.CryptoWithdrawTransaction.query.filter(
+        transaction.CryptoWithdrawTransaction.is_acknowledged.is_(False)
+    )
+    unacknowledged_transactions = unacknowledged_transactions_q.all()
+
+    http = urllib3.PoolManager(
+        ca_certs=certifi.where(),
+        cert_reqs='CERT_REQUIRED'
+    )
+    for t in unacknowledged_transactions:
+
+        data = {
+            'tx_id': str(t.u_txid),
+            'status': t.status
+        }
+        withdraw_req = schemata.WithdrawCallbackRequest(data)
+        withdraw_req.validate()
+
+        encoded_data = json.dumps(data).encode('utf-8')
+        try:
+            resp = http.request(
+                'POST',
+                withdraw_notification_endpoint,
+                body=encoded_data,
+                headers={'Content-Type': 'application/json'},
+                retries=10
+            )
+        except urllib3.exceptions.HTTPError:
+            pass
+        else:
+            if resp.status in [200, 201]:
+                t.is_acknowledged = True
+
+    sqla_session.commit()
+
+
+def periodic_send_deposit():
+    deposit_notification_endpoint = config['deposit_notification_endpoint']
+
+    unacknowledged_transactions_q = transaction.CryptoDepositTransaction.query.filter(
+        transaction.CryptoDepositTransaction.is_acknowledged.is_(False)
+    )
+    unacknowledged_transactions = unacknowledged_transactions_q.all()
+
+    http = urllib3.PoolManager(
+        ca_certs=certifi.where(),
+        cert_reqs='CERT_REQUIRED'
+    )
+    for t in unacknowledged_transactions:
+
+        data = {
+            'tx_id': str(t.u_txid),
+            'wallet_addr': t.address,
+            'amount': str(t.amount),
+            'currency': t.currency,
+            'status': t.status
+        }
+
+        withdraw_req = schemata.DepositCallbackRequest(data)
+        withdraw_req.validate()
+
+        encoded_data = json.dumps(data).encode('utf-8')
+        try:
+            resp = http.request(
+                'POST',
+                deposit_notification_endpoint,
+                body=encoded_data,
+                headers={'Content-Type': 'application/json'},
+                retries=10
+            )
+        except urllib3.exceptions.HTTPError:
+            pass
+        else:
+            if resp.status in [200, 201]:
+                t.is_acknowledged = True
+
+    sqla_session.commit()

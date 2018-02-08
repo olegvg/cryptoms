@@ -1,10 +1,6 @@
 import uuid
-import urllib3
-import json
 
-import certifi
-
-from transer import types, config, schemata
+from transer import types, config
 from transer.btc import monitor_transaction as btc_mon
 from transer.eth import monitor_transaction as eth_mon
 from transer.db import sqla_session, btc, eth, transaction
@@ -76,49 +72,6 @@ def periodic_check_deposit_btc():
 
         if status == types.DepositStatus.COMPLETED:
             add_confirmed_deposit_btc(address, amount)
-
-    sqla_session.commit()
-
-
-def periodic_send_deposit():
-    deposit_notification_endpoint = config['deposit_notification_endpoint']
-
-    unacknowledged_transactions_q = transaction.CryptoDepositTransaction.query.filter(
-        transaction.CryptoDepositTransaction.is_acknowledged.is_(False)
-    )
-    unacknowledged_transactions = unacknowledged_transactions_q.all()
-
-    http = urllib3.PoolManager(
-        ca_certs=certifi.where(),
-        cert_reqs='CERT_REQUIRED'
-    )
-    for t in unacknowledged_transactions:
-
-        data = {
-            'tx_id': str(t.u_txid),
-            'wallet_addr': t.address,
-            'amount': str(t.amount),
-            'currency': t.currency,
-            'status': t.status
-        }
-
-        withdraw_req = schemata.DepositRequest(data)
-        withdraw_req.validate()
-
-        encoded_data = json.dumps(data).encode('utf-8')
-        try:
-            resp = http.request(
-                'POST',
-                deposit_notification_endpoint,
-                body=encoded_data,
-                headers={'Content-Type': 'application/json'},
-                retries=10
-            )
-        except urllib3.exceptions.HTTPError:
-            pass
-        else:
-            if resp.status in [200, 201]:
-                t.is_acknowledged = True
 
     sqla_session.commit()
 

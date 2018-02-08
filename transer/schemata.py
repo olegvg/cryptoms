@@ -20,12 +20,12 @@ class WithdrawResponse(Model):
     status = types.StringType(required=True, choices=[x.value for x in WithdrawalStatus])
 
 
-class WithdrawalStatusResponse(Model):
+class WithdrawCallbackRequest(Model):
     tx_id = types.UUIDType(required=True)
     status = types.StringType(required=True, choices=[x.value for x in WithdrawalStatus])
 
 
-class DepositRequest(Model):
+class DepositCallbackRequest(Model):
     tx_id = types.UUIDType(required=True)
     wallet_addr = types.StringType(required=True)
     amount = types.DecimalType(required=True)

@@ -1,13 +1,9 @@
 import decimal
-import json
-
-import certifi
-import urllib3
 
 from sqlalchemy import desc, asc
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
-from transer import config, types, schemata
+from transer import config, types
 from transer.exceptions import TransactionInconsistencyError, EthMonitorTransactionException
 from transer.db import eth, btc, transaction, sqla_session
 from transer.types import CryptoCurrency, WithdrawalStatus
@@ -234,49 +230,6 @@ def periodic_check_withdraw_eth():
 
     for cw_trx in crypto_transactions:
         withdrawal_status_eth(cw_trx)
-
-    sqla_session.commit()
-
-
-def periodic_send_withdraw():
-    withdraw_notification_endpoint = config['withdraw_notification_endpoint']
-
-    unacknowledged_transactions_q = transaction.CryptoWithdrawTransaction.query.filter(
-        transaction.CryptoWithdrawTransaction.is_acknowledged.is_(False)
-    )
-    unacknowledged_transactions = unacknowledged_transactions_q.all()
-
-    http = urllib3.PoolManager(
-        ca_certs=certifi.where(),
-        cert_reqs='CERT_REQUIRED'
-    )
-    for t in unacknowledged_transactions:
-
-        data = {
-            'tx_id': str(t.u_txid),
-            'wallet_addr': t.address,
-            'amount': str(t.amount),
-            'currency': t.currency,
-            'status': t.status
-        }
-
-        withdraw_req = schemata.DepositRequest(data)
-        withdraw_req.validate()
-
-        encoded_data = json.dumps(data).encode('utf-8')
-        try:
-            resp = http.request(
-                'POST',
-                withdraw_notification_endpoint,
-                body=encoded_data,
-                headers={'Content-Type': 'application/json'},
-                retries=10
-            )
-        except urllib3.exceptions.HTTPError:
-            pass
-        else:
-            if resp.status in [200, 201]:
-                t.is_acknowledged = True
 
     sqla_session.commit()
 

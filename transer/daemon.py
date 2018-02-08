@@ -59,7 +59,7 @@ def run(db_uri, listen_host, listen_port, workers,
     )
 
     deposit_send_task = delayed_scheduler(
-        deposit.periodic_send_deposit,
+        outerface.periodic_send_deposit,
         interval=50
     )
 
@@ -70,6 +70,11 @@ def run(db_uri, listen_host, listen_port, workers,
 
     eth_withdraw_monitor_task = delayed_scheduler(
         withdraw.periodic_check_withdraw_eth,
+        interval=50
+    )
+
+    withdraw_send_task = delayed_scheduler(
+        outerface.periodic_send_withdraw,
         interval=50
     )
 
