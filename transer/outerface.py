@@ -8,7 +8,7 @@ from aiohttp.web import json_response, Response
 
 from sqlalchemy.orm.exc import NoResultFound
 
-from transer import schemata, config
+from transer import schemata, config, types
 from transer.db import transaction, sqla_session
 from transer.types import CryptoCurrency, WithdrawalStatus
 
@@ -21,7 +21,9 @@ async def claim_wallet_addr_endpoint(request):
     # strange redundant validator :-)
     if currency not in [x.value for x in CryptoCurrency]:
         resp = Response()
-        resp.set_status(404, f'Crypto currency ticker {currency} is not supported')
+        resp_text = f'Crypto currency ticker {currency} is not supported'
+        resp.set_status(501, resp_text)
+        resp.text = resp_text
         return resp
 
     handlers = {
@@ -33,11 +35,6 @@ async def claim_wallet_addr_endpoint(request):
 
     status = handler_func()
 
-    if status == WithdrawalStatus.FAILED.value:
-        resp = Response()
-        resp.set_status(404, f'Allocation of new address unsuccessful')
-        return resp
-
     return json_response(status)
 
 
@@ -47,7 +44,9 @@ async def reconcile_addresses_endpoint(request, enforce=False):
     # strange redundant validator :-)
     if currency not in [x.value for x in CryptoCurrency]:
         resp = Response()
-        resp.set_status(404, f'Crypto currency ticker {currency} is not supported')
+        resp_text = f'Crypto currency ticker {currency} is not supported'
+        resp.set_status(501, resp_text)
+        resp.text = resp_text
         return resp
 
     handlers = {
@@ -59,7 +58,9 @@ async def reconcile_addresses_endpoint(request, enforce=False):
 
     if res == WithdrawalStatus.FAILED:
         resp = Response()
-        resp.set_status(404, f'Reconciliation is unsuccessful')
+        resp_text = 'Notable failure. Call the programmer'
+        resp.set_status(503, resp_text)
+        resp.text = resp_text
         return resp
 
     dumps = partial(json.dumps, cls=DatetimeDecimalEncoder)
@@ -84,11 +85,6 @@ async def withdraw_endpoint(request):
         amount=withdraw_req.amount
     )
 
-    if status == WithdrawalStatus.FAILED.value:
-        resp = Response()
-        resp.set_status(404, f'Withdrawal transaction ends unsuccessfully')
-        return resp
-
     resp_data = {'tx_id': data['tx_id'], 'status': status}
     withdraw_req = schemata.WithdrawResponse(resp_data)
     withdraw_req.validate()
@@ -105,9 +101,10 @@ async def withdrawal_status_endpoint(request):
     try:
         crypto_transaction = crypto_transaction_q.one()
     except NoResultFound:
-        resp = Response()
-        resp.set_status(404, f'Transaction {u_txid} is not found')
-        return resp
+        resp_data = {'tx_id': u_txid, 'status': types.WithdrawalStatus.FAILED.value}
+        withdraw_req = schemata.WithdrawResponse(resp_data)
+        withdraw_req.validate()
+        return json_response(resp_data)
 
     handlers = {
         CryptoCurrency.BITCOIN.value: withdraw.withdrawal_status_btc,
@@ -118,11 +115,6 @@ async def withdrawal_status_endpoint(request):
     handler_func(crypto_transaction)
 
     sqla_session.commit()
-
-    if crypto_transaction.status == WithdrawalStatus.FAILED.value:
-        resp = Response()
-        resp.set_status(404, f'Checking of transaction status ends unsuccessfully')
-        return resp
 
     resp_data = {'tx_id': u_txid, 'status': crypto_transaction.status}
     withdraw_req = schemata.WithdrawResponse(resp_data)
