@@ -1,0 +1,9 @@
+Конфигурация для postgresql-базы
+
+Примеры работы:
+
+# создание новой миграции
+alembic --name local_dev revision -m "new rev in local_dev" --autogenerate
+
+# раскатывание миграций вплоть до head
+alembic --name local_dev upgrade head

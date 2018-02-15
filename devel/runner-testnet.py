@@ -16,6 +16,8 @@ if __name__ == '__main__':
         workers=10,
         btc_masterkey_name='btc_test',
         eth_masterkey_name='eth_test',
+        btc_crypt_key='1qazxsw2',
+        eth_crypt_key='1qazxsw2',
         btcd_instance_name='test_instance',
         ethd_instance_uri='http://127.0.0.1:48545',
         deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit',

@@ -10,7 +10,12 @@ from sqlalchemy import Column, Integer, String, Unicode, Boolean, DateTime, Fore
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import functions
 
+from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
+
+from transer import config
 from transer.exceptions import BtcAddressIntegrityException, BtcAddressCreationException
+from transer.ethereum_utils.utils import bytes_to_str, hex_str_to_bytes
 from . import Base, sqla_session
 
 logger = logging.getLogger('db')
@@ -25,21 +30,52 @@ class MasterKey(Base):
     __tablename__ = 'master_keys'
 
     __table_args__ = (
-        UniqueConstraint('priv_masterkey', 'pub_masterkey'),
+        UniqueConstraint('priv_masterkey_encrypted', 'pub_masterkey'),
         {'schema': schema_prefix + 'private'}
     )
 
     masterkey_name = Column(Unicode, unique=True)   # человеческое имя порождающего мастер-ключа BIP32
-    priv_masterkey = Column(String(111), unique=True)
+    priv_masterkey_encrypted = Column(String(222), unique=True)
+    priv_masterkey_aet = Column(String(32), unique=True)
+    priv_masterkey_nonce = Column(String(32), unique=True)
     pub_masterkey = Column(String(111), unique=True)
     treat_as_testnet = Column(Boolean, default=False)
 
-    def __init__(self, masterkey_name, priv_masterkey, treat_as_testnet):
+    def __init__(self, masterkey_name, priv_masterkey, encryption_key='Snake oil', treat_as_testnet=False):
+        """
+
+        :param masterkey_name: человеко-читаемое имя мастер-ключа, используется при инициализации демона
+        :param priv_masterkey: незашифрованный мастер-ключ
+        :param encryption_key: ключ симметричного шифрования мастер-ключа
+        :param treat_as_testnet:
+        """
         self.masterkey_name = masterkey_name
-        self.priv_masterkey = priv_masterkey
+        encryption_key_b = encryption_key.encode('utf-8')
+        priv_masterkey_b = priv_masterkey.encode('utf-8')
+
+        crypt_key = SHA256.new(encryption_key_b).digest()
+
+        cipher = AES.new(crypt_key, AES.MODE_GCM)
+        ciphertext, tag = cipher.encrypt_and_digest(priv_masterkey_b)
+        self.priv_masterkey_encrypted = bytes_to_str(ciphertext)
+        self.priv_masterkey_aet = bytes_to_str(tag)
+        self.priv_masterkey_nonce = bytes_to_str(cipher.nonce)
+
         bip32_key = BIP32Node.from_hwif(priv_masterkey)
         self.pub_masterkey = bip32_key.hwif(as_private=False)
         self.treat_as_testnet = treat_as_testnet
+
+    def get_priv_masterkey(self):
+        masterkey_encrypted = hex_str_to_bytes(self.priv_masterkey_encrypted)
+        masterkey_aet = hex_str_to_bytes(self.priv_masterkey_aet)
+        masterkey_nonce = hex_str_to_bytes(self.priv_masterkey_nonce)
+
+        crypt_key = SHA256.new(config['btc_crypt_key'].encode('utf_8')).digest()
+
+        decipher = AES.new(crypt_key, AES.MODE_GCM, masterkey_nonce)
+        masterkey_b = decipher.decrypt_and_verify(masterkey_encrypted, masterkey_aet)
+
+        return masterkey_b.decode('utf-8')
 
 
 class BitcoindInstance(Base):
@@ -129,8 +165,9 @@ class Address(Base):
     is_populated = Column(Boolean, default=False)
 
     def get_priv_key(self):
-        masterkey = self.masterkey.priv_masterkey
-        bip32_key = BIP32Node.from_hwif(masterkey)
+        masterkey_b = self.masterkey.get_priv_masterkey()
+
+        bip32_key = BIP32Node.from_hwif(masterkey_b)
         full_path = f'{self.crypto_path}/{self.crypto_number}'
 
         netcode = 'XTN' if self.masterkey.treat_as_testnet is True else 'BTC'
@@ -140,7 +177,7 @@ class Address(Base):
         return derived_key.wif()
 
     def check_integrity(self):
-        masterkey = self.masterkey.priv_masterkey
+        masterkey = self.masterkey.get_priv_masterkey()
         bip32_key = BIP32Node.from_hwif(masterkey)
         full_path = f'{self.crypto_path}/{self.crypto_number}'
 
@@ -182,7 +219,7 @@ class Address(Base):
             raise BtcAddressCreationException(f'''trying to create existing
             addresses with {masterkey.pub_masterkey}:{crypto_path}/{from_crypto_num}-{from_crypto_num+num_addrs}''')
 
-        bip32_key = BIP32Node.from_hwif(masterkey.priv_masterkey)
+        bip32_key = BIP32Node.from_hwif(masterkey.get_priv_masterkey())
         netcode = 'XTN' if masterkey.treat_as_testnet is True else 'BTC'
         bip32_key._netcode = netcode  # грязный хак чтобы обойти кривую генерацию ключей для testnet в Electrum
 

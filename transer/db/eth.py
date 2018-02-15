@@ -7,8 +7,13 @@ from sqlalchemy import Column, Integer, String, Unicode, DateTime, ForeignKey, U
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import functions
 
+from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
+
+from transer import config
 from transer.ethereum_utils import bip44
 from transer.exceptions import EthAddressCreationException
+from transer.ethereum_utils.utils import bytes_to_str, hex_str_to_bytes
 from . import Base, sqla_session
 
 logger = logging.getLogger('db')
@@ -26,21 +31,47 @@ class MasterKey(Base):
     )
 
     masterkey_name = Column(Unicode, unique=True)   # человеческое имя порождающего мастер-ключа BIP32
-    seed = Column(String(128), unique=True)
+    seed_encrypted = Column(String(256), unique=True)
+    seed_aet = Column(String(32), unique=True)
+    seed_nonce = Column(String(32), unique=True)
     network_id = Column(Integer, default=1)
 
-    def __init__(self, masterkey_name, seed, network_id=1):
+    def __init__(self, masterkey_name, seed, encryption_key='Snake oil', network_id=1):
         """
 
-        :param masterkey_name:
+        :param masterkey_name: человеко-читаемое имя мастер-ключа, используется при инициализации демона
         :param seed: hex-encoded сид-энтропия для BIP32/BIP44 мастер-ключа. Обычно, получается так:
             seed_b = Mnemonic.to_seed('word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12')
-            seed_h = utils.encode_hex(seed_b)
+            seed = utils.encode_hex(seed_b)
+        :param encryption_key: симметричный ключ шифрования для seed
+        :param network_id: id сети Ethereum
         """
 
         self.masterkey_name = masterkey_name
-        self.seed = seed
+        encryption_key_b = encryption_key.encode('utf-8')
+        seed_b = seed.encode('utf-8')
+
+        crypt_key = SHA256.new(encryption_key_b).digest()
+
+        cipher = AES.new(crypt_key, AES.MODE_GCM)
+        ciphertext, tag = cipher.encrypt_and_digest(seed_b)
+        self.seed_encrypted = bytes_to_str(ciphertext)
+        self.seed_aet = bytes_to_str(tag)
+        self.seed_nonce = bytes_to_str(cipher.nonce)
+
         self.network_id = network_id
+
+    def get_seed(self):
+        seed_encrypted = hex_str_to_bytes(self.seed_encrypted)
+        seed_aet = hex_str_to_bytes(self.seed_aet)
+        seed_nonce = hex_str_to_bytes(self.seed_nonce)
+
+        crypt_key = SHA256.new(config['eth_crypt_key'].encode('utf_8')).digest()
+
+        decipher = AES.new(crypt_key, AES.MODE_GCM, seed_nonce)
+        seed_b = decipher.decrypt_and_verify(seed_encrypted, seed_aet)
+
+        return seed_b
 
     @staticmethod
     def create_from_mnemonic(cls, masterkey_name, mnemonic):
@@ -87,7 +118,7 @@ class Address(Base):
     timestamp = Column(DateTime(timezone=True), default=functions.now(), index=True)
 
     def get_priv_key(self):
-        seed_b = ethereum_utils.decode_hex(self.masterkey.seed)
+        seed_b = ethereum_utils.decode_hex(self.masterkey.get_seed())
         bip44_masterkey = bip44.HDPrivateKey.master_key_from_seed(seed_b)
 
         path_key = bip44.HDKey.from_path(bip44_masterkey, self.crypto_path)[-1]
@@ -122,7 +153,8 @@ class Address(Base):
             raise EthAddressCreationException(f'''trying to create existing
             addresses with {masterkey.pub_masterkey}:{crypto_path}/{from_crypto_num}-{from_crypto_num+num_addrs}''')
 
-        seed_b = ethereum_utils.decode_hex(masterkey.seed)
+        seed = masterkey.get_seed()
+        seed_b = ethereum_utils.decode_hex(seed)
         bip44_masterkey = bip44.HDPrivateKey.master_key_from_seed(seed_b)
 
         path_key = bip44.HDKey.from_path(bip44_masterkey, crypto_path)[-1]

@@ -16,11 +16,15 @@ from transer import config
 
 def run(db_uri, listen_host, listen_port, workers,
         btc_masterkey_name, eth_masterkey_name,
+        btc_crypt_key, eth_crypt_key,
         btcd_instance_name, ethd_instance_uri,
         deposit_notification_endpoint, withdraw_notification_endpoint):
 
     config['eth_masterkey_name'] = eth_masterkey_name
     config['btc_masterkey_name'] = btc_masterkey_name
+
+    config['eth_crypt_key'] = eth_crypt_key
+    config['btc_crypt_key'] = btc_crypt_key
 
     config['ethd_instance_uri'] = ethd_instance_uri
     config['btcd_instance_name'] = btcd_instance_name
@@ -82,15 +86,31 @@ def run(db_uri, listen_host, listen_port, workers,
 
 
 def main():
-    btc_masterkey_name = environ['T_BTC_MASTERKEY_NAME']
-    eth_masterkey_name = environ['T_ETH_MASTERKEY_NAME']
-
-    btcd_instance_name = environ['T_BTCD_INSTANCE_NAME']
-    ethd_instance_uri = environ['T_ETHD_INSTANCE_URI']
-    deposit_notification_endpoint = environ['T_DEPOSIT_NOTIFICATION_ENDPOINT']
-    withdraw_notification_endpoint = environ['T_WITHDRAW_NOTIFICATION_ENDPOINT']
-
     try:
+        btc_masterkey_name = environ['T_BTC_MASTERKEY_NAME']
+        eth_masterkey_name = environ['T_ETH_MASTERKEY_NAME']
+
+        if btc_masterkey_name:
+            btc_crypt_key = input(f"Enter the deciphering password for private key'{btc_masterkey_name}': ")
+            btc_crypt_key_2 = input('Enter it again: ')
+            if btc_crypt_key != btc_crypt_key_2:
+                raise DaemonConfigException(f'cannot decipher key {btc_masterkey_name}')
+        else:
+            btc_crypt_key = 'Snake oil'
+
+        if eth_masterkey_name:
+            eth_crypt_key = input(f"Enter the deciphering password for private key'{eth_masterkey_name}': ")
+            eth_crypt_key_2 = input('Enter it again: ')
+            if eth_crypt_key != eth_crypt_key_2:
+                raise DaemonConfigException(f'cannot decipher key {eth_masterkey_name}')
+        else:
+            eth_crypt_key = 'Snake oil'
+
+        btcd_instance_name = environ['T_BTCD_INSTANCE_NAME']
+        ethd_instance_uri = environ['T_ETHD_INSTANCE_URI']
+        deposit_notification_endpoint = environ['T_DEPOSIT_NOTIFICATION_ENDPOINT']
+        withdraw_notification_endpoint = environ['T_WITHDRAW_NOTIFICATION_ENDPOINT']
+
         db_uri = environ['T_DB_URI']
         listen_host = environ['T_LISTEN_HOST']
         listen_port = int(environ['T_LISTEN_PORT'])
@@ -105,6 +125,8 @@ def main():
         workers=workers,
         btc_masterkey_name=btc_masterkey_name,
         eth_masterkey_name=eth_masterkey_name,
+        btc_crypt_key=btc_crypt_key,
+        eth_crypt_key=eth_crypt_key,
         btcd_instance_name=btcd_instance_name,
         ethd_instance_uri=ethd_instance_uri,
         deposit_notification_endpoint=deposit_notification_endpoint,
