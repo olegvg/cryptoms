@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  bitcoind:
+    image: docker.cryptology.com/blockchain/bitcoind:v1
+    ports:
+      - 8333:8333
+      - 127.0.0.01:8332:8332
+    environment:
+      - TESTNET=1
+      - RPCUSER=bitcoinrpc
+      - RPCPASSWORD=dev
+    volumes:
+      - /bitcoin
+
+  geth:
+    image: ethereum/client-go
+    command: --rpc --debug --port 30301 --networkid=4 # 1 for main net
+    ports:
+      - 30301:30301
+    volumes:
+      - /root/.ethereum
+
+  db:
+    image: postgres:9.6
+    environment:
+      - POSTGRES_PASSWORD=dev
+
+  daemon:
+    build: .
+    command: python daemon.py
+    environment:
+      - BITCOIND_URL=https://bitcoinrpc:dev@bitcoind:8332
+      - GETH_URL=http://geth:3101
+      - DATABASE_URL=postgres://postgres:dev@db/postgres
+      - CALLBACK_API_ROOT=https://staging.payments.cryptology.com/api/internal
+      - BTC_SIGNER_URL=https://btc-signer:8080/btc
+      - ETH_SIGNER_URL=https://eth-signer:8080/eth
+      - PORT=8080
+    ports:
+      - 8080:8080
+
+  btc-signer:
+    build: .
+    command: python signers/btc_signer.py
+    environment:
+      - BTC_MASTERKEY_NAME=btc_test
+      - BTC_MASTERKEY_PASSPHRASE=1qazxsw2
+      - PORT=8080
+
+  eth-signer:
+    build: .
+    command: python signers/eth_signer.py
+    environment:
+      - ETH_MASTERKEY_NAME=eth_test
+      - ETH_MASTERKEY_PASSPHRASE=1qazxsw2
+      - PORT=8080

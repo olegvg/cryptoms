@@ -25,4 +25,3 @@ if __name__ == '__main__':
         deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit',
         withdraw_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/withdraw'
     )
-
