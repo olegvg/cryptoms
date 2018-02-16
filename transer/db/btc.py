@@ -86,15 +86,16 @@ class BitcoindInstance(Base):
     }
 
     instance_name = Column(Unicode)
-    hostname = Column(String)
-    port = Column(Integer)
-    rpc_user = Column(String)
-    rpc_passwd = Column(String)
-    is_https = Column(Boolean, default=False)
+    uri_hash = Column(String(64), unique=True)
 
     def get_url(self):
-        s = 's' if self.is_https else ''
-        return f'http{s}://{self.rpc_user}:{self.rpc_passwd}@{self.hostname}:{self.port}'
+        uri = config['btcd_instance_uri']
+        uri_digest = SHA256.new(uri).digest()
+        uri_digest_h = bytes_to_str(uri_digest)
+        if uri_digest_h != self.uri_hash:
+            # TODO do the proper validation. In the _futureee_
+            pass
+        return config['btcd_instance_uri']
 
     # тут обойдемся без singleton, тк. multiprocess/futures будет сделать непросто
     def get_rpc_conn(self):

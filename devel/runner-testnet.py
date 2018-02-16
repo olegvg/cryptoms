@@ -14,6 +14,7 @@ if __name__ == '__main__':
         listen_host='0.0.0.0',
         listen_port=8000,
         workers=10,
+        signing_mode=0,
         btc_masterkey_name='btc_test',
         eth_masterkey_name='eth_test',
         btc_crypt_key='1qazxsw2',
