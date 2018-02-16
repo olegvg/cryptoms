@@ -2,7 +2,7 @@ version: '3'
 
 services:
   bitcoind:
-    image: docker.cryptology.com/blockchain/bitcoind:v1
+    image: docker.cryptology.com/blockchain/bitcoind:v2
     ports:
       - 8333:8333
       - 127.0.0.01:8332:8332
@@ -11,15 +11,16 @@ services:
       - RPCUSER=bitcoinrpc
       - RPCPASSWORD=dev
     volumes:
-      - /bitcoin
+      - /mnt/blockchain/bitcoin-testnet:/bitcoin
 
   geth:
     image: ethereum/client-go
     command: --rpc --debug --port 30301 --networkid=4 # 1 for main net
     ports:
       - 30301:30301
+      - 127.0.0.1:8545:8545
     volumes:
-      - /root/.ethereum
+      - /mnt/blockchain/ethereum-rinkeby:/root/.ethereum
 
   db:
     image: postgres:9.6
@@ -34,8 +35,9 @@ services:
       - ETHEREUMD_URL=http://geth:3101
       - DATABASE_URL=postgres://postgres:dev@db/postgres
       - CALLBACK_API_ROOT=https://staging.payments.cryptology.com/api/internal
-      - BTC_SIGNER_URL=https://btc-signer:8080/btc
-      - ETH_SIGNER_URL=https://eth-signer:8080/eth
+      - BTC_SIGNER_URL=https://btc-signer:9000/btc
+      - ETH_SIGNER_URL=https://eth-signer:9001/eth
+      - SENTRY_DSN=https://d18fa496a45840d7ab19a24c94d8f450:d2559d05e4a64c0fbcff279a23578592@sentry.io/281239
       - PORT=8080
     ports:
       - 8080:8080
@@ -46,7 +48,8 @@ services:
     environment:
       - BTC_MASTERKEY_NAME=btc_test
       - BTC_MASTERKEY_PASSPHRASE=1qazxsw2
-      - PORT=8080
+      - SENTRY_DSN=https://d18fa496a45840d7ab19a24c94d8f450:d2559d05e4a64c0fbcff279a23578592@sentry.io/281239
+      - PORT=9000
 
   eth-signer:
     build: .
@@ -54,4 +57,5 @@ services:
     environment:
       - ETH_MASTERKEY_NAME=eth_test
       - ETH_MASTERKEY_PASSPHRASE=1qazxsw2
-      - PORT=8080
+      - SENTRY_DSN=https://d18fa496a45840d7ab19a24c94d8f450:d2559d05e4a64c0fbcff279a23578592@sentry.io/281239
+      - PORT=9001
