@@ -5,11 +5,15 @@ from ethereum import transactions, utils
 
 from transer.eth.validate_address import normalize_addr
 from transer.exceptions import EthAddressIntegrityException
-
 from transer.eth import _eth_dispatcher
+from transer import config
+from transer.utils import jsonrpc_caller
+
+eth_signing_instance_uri = config['eth_signing_instance_uri']
 
 
 @_eth_dispatcher.add_method
+@jsonrpc_caller(target_uri=eth_signing_instance_uri, catchables=[EthAddressIntegrityException])
 def sign_transaction(src_addr, priv_key, unsigned_tx_h, network_id=1):
     """
     sign_transaction()
