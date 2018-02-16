@@ -15,8 +15,8 @@ from transer.types import CryptoCurrency, WithdrawalStatus
 from transer.orchestrator import withdraw, claim_wallet_addr, reconciliation
 
 
-async def claim_wallet_addr_endpoint(request):
-    currency = request.match_info['currency']
+def claim_wallet_addr_endpoint(sync_request):
+    currency = sync_request['match_info']['currency']
 
     # strange redundant validator :-)
     if currency not in [x.value for x in CryptoCurrency]:
@@ -38,8 +38,8 @@ async def claim_wallet_addr_endpoint(request):
     return json_response(status)
 
 
-async def reconcile_addresses_endpoint(request, enforce=False):
-    currency = request.match_info['currency']
+def reconcile_addresses_endpoint(sync_request, enforce=False):
+    currency = sync_request['match_info']['currency']
 
     # strange redundant validator :-)
     if currency not in [x.value for x in CryptoCurrency]:
@@ -67,8 +67,8 @@ async def reconcile_addresses_endpoint(request, enforce=False):
     return json_response({'actual_balances': res}, dumps=dumps)
 
 
-async def withdraw_endpoint(request):
-    data = await request.json(loads=json.loads)
+def withdraw_endpoint(sync_request):
+    data = sync_request['json']
     withdraw_req = schemata.WithdrawRequest(data)
     withdraw_req.validate()
 
@@ -91,8 +91,8 @@ async def withdraw_endpoint(request):
     return json_response(resp_data)
 
 
-async def withdrawal_status_endpoint(request):
-    u_txid = request.match_info['u_txid']
+def withdrawal_status_endpoint(sync_request):
+    u_txid = sync_request['match_info']['u_txid']
 
     crypto_transaction_q = transaction.CryptoWithdrawTransaction.query.filter(
         transaction.CryptoWithdrawTransaction.u_txid == u_txid
