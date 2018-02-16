@@ -90,7 +90,7 @@ class BitcoindInstance(Base):
 
     def get_url(self):
         uri = config['btcd_instance_uri']
-        uri_digest = SHA256.new(uri).digest()
+        uri_digest = SHA256.new(uri.encode('utf-8')).digest()
         uri_digest_h = bytes_to_str(uri_digest)
         if uri_digest_h != self.uri_hash:
             # TODO do the proper validation. In the _futureee_
