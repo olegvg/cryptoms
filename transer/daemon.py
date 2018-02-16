@@ -9,9 +9,6 @@ from transer.utils import dump_db_ddl, recreate_entire_database
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
 from transer.eth import init_eth
-from transer.orchestrator import deposit, withdraw
-
-from transer import outerface
 from transer import config
 
 
@@ -36,6 +33,10 @@ def run(db_uri, listen_host, listen_port, workers,
 
     config['deposit_notification_endpoint'] = deposit_notification_endpoint
     config['withdraw_notification_endpoint'] = withdraw_notification_endpoint
+
+    # TODO do refactoring to mitigate the circular dependencies
+    from transer.orchestrator import deposit, withdraw
+    from transer import outerface
 
     async_loop = asyncio.get_event_loop()
     app = web.Application()
