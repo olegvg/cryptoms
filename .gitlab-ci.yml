@@ -1,0 +1,23 @@
+image: docker.cryptology.com/barbuza/ci-image:v5
+
+stages:
+  - lint
+  - build
+  - test
+  - deploy
+  - cleanup
+
+before_script:
+    - export BUILD_VERSION=b$CI_PIPELINE_ID
+    - export BUILD_TAG="$CI_REGISTRY_IMAGE:$BUILD_VERSION"
+    - export PUSH_TAGS="$BUILD_TAG"
+    - if [ "$CI_COMMIT_REF_NAME" = "master" ]; then export PUSH_TAGS="$PUSH_TAGS $CI_REGISTRY_IMAGE:latest"; fi
+    - if [ "$CI_COMMIT_TAG" != "" ]; then export PUSH_TAGS="$PUSH_TAGS $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"; fi
+
+build:
+  stage: build
+  script:
+    - docker login --username="$CI_REGISTRY_USER" --password="$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker pull "$CI_REGISTRY_IMAGE" || true
+    - docker build --build-arg="APP_VERSION=$CI_COMMIT_SHA" --tag="$BUILD_TAG" --cache-from="$CI_REGISTRY_IMAGE" .
+    - for TAG in $PUSH_TAGS; do docker tag "$BUILD_TAG" "$TAG" && docker push "$TAG"; done
