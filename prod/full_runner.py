@@ -14,7 +14,7 @@ if __name__ == '__main__':
     try:
         db_uri = environ['DATABASE_URL']
         listen_port = int(environ['PORT'])
-        workers = environ.get(['WORKERS'], 10)
+        workers = environ.get('WORKERS', 10)
 
         signing_mode = False
 

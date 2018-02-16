@@ -43,7 +43,7 @@ if __name__ == '__main__':
         eth_masterkey_name=eth_masterkey_name,
         btc_crypt_key=btc_crypt_key,
         eth_crypt_key=eth_crypt_key,
-        btcd_instance_name=btcd_instance_uri,
+        btcd_instance_uri=btcd_instance_uri,
         ethd_instance_uri=ethd_instance_uri,
         btc_signing_instance_uri=btc_signing_instance_uri,
         eth_signing_instance_uri=eth_signing_instance_uri,
