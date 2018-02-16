@@ -31,7 +31,7 @@ services:
     command: python daemon.py
     environment:
       - BITCOIND_URL=https://bitcoinrpc:dev@bitcoind:8332
-      - GETH_URL=http://geth:3101
+      - ETHEREUMD_URL=http://geth:3101
       - DATABASE_URL=postgres://postgres:dev@db/postgres
       - CALLBACK_API_ROOT=https://staging.payments.cryptology.com/api/internal
       - BTC_SIGNER_URL=https://btc-signer:8080/btc
