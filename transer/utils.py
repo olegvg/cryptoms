@@ -127,6 +127,18 @@ def handler_fabric(executor, dispatcher):
     return submitter
 
 
+def endpoint_fabric(executor, func):
+    async def submitter(request):
+        sync_request = {
+            # here socket object in fact, cannot be pickled
+            'match_info': request.match_info,
+            'json': await request.json(loads=json.loads)
+        }
+        future = executor.submit(subprocess_wrapper, func, sync_request)
+        return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
+    return submitter
+
+
 def subprocess_wrapper(func, *args, **kwargs):
     # Sqlalchemy's Engine to multiprocessing augmenter moved to init_db()
     try:
@@ -273,41 +285,3 @@ def jsonrpc_caller(target_uri=None, catchables=()):
 
         return wrapper if target_uri is not None else func
     return decorator
-
-
-def call_jsonrpc(target_uri, method, kwargs, catchables):
-    payload = {
-        "method": method,
-        "params": kwargs,
-        "jsonrpc": "2.0",
-        "id": 0,
-    }
-
-    encoded_data = json.dumps(payload, cls=DatetimeDecimalEncoder).encode('utf-8')
-
-    http = urllib3.PoolManager(
-        ca_certs=certifi.where(),
-        cert_reqs='CERT_REQUIRED'
-    )
-    resp = http.request(
-        'POST',
-        target_uri,
-        body=encoded_data,
-        headers={'Content-Type': 'application/json'},
-        retries=10
-    )
-
-    decoded_resp = json.loads(resp.data)
-
-    if decoded_resp.get('result', None):
-        return decoded_resp['result']
-    else:
-        exceptions = {x.__name__: x for x in catchables}
-        error_data = decoded_resp['error']['data']
-        remote_exception_args = error_data['args']
-        if error_data['type'] in exceptions:
-            remote_exception = exceptions[error_data['type']]
-            raise remote_exception(*remote_exception_args)
-        else:
-            unknown_exception = Exception
-            raise unknown_exception(*remote_exception_args)

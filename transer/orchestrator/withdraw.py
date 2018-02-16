@@ -3,8 +3,7 @@ import decimal
 from sqlalchemy import desc, asc
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
-from transer import config, types, exceptions
-from transer.utils import call_jsonrpc
+from transer import config, types
 from transer.exceptions import TransactionInconsistencyError, EthMonitorTransactionException
 from transer.db import eth, btc, transaction, sqla_session
 from transer.types import CryptoCurrency, WithdrawalStatus
@@ -124,23 +123,11 @@ def withdraw_btc(u_txid, address, amount):
             fee=actual_fee
         )
 
-        btc_signing_instance_uri = config['btc_signing_instance_uri']
-
-        signed_trx, _ = call_jsonrpc(
-            target_uri=btc_signing_instance_uri,
-            method='btc_sign_transaction',
-            kwargs={
-                'bt_name': bitcoind_inst.instance_name,
-                'signing_addrs': src_addresses,
-                'trx': trx},
-            catchables=exceptions.BtcSignTransactionException
+        signed_trx, _ = btc_sign_transaction(
+            bt_name=bitcoind_inst.instance_name,
+            signing_addrs=src_addresses,
+            trx=trx
         )
-
-        # signed_trx, _ = btc_sign_transaction(
-        #     bt_name=bitcoind_inst.instance_name,
-        #     signing_addrs=src_addresses,
-        #     trx=trx
-        # )
 
         # It would be a race condition between section starting from send_transaction() to sqla_session.commit()
         # and monitor_transaction.get_recent_deposit_transactions(), if get_recent_deposit_transactions() taken

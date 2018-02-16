@@ -4,7 +4,8 @@ from concurrent import futures
 import asyncio
 from aiohttp import web
 
-from transer.utils import handler_fabric, init_db, create_delayed_scheduler, dump_db_ddl, recreate_entire_database
+from transer.utils import handler_fabric, endpoint_fabric, init_db, create_delayed_scheduler
+from transer.utils import dump_db_ddl, recreate_entire_database
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
 from transer.eth import init_eth
@@ -35,10 +36,6 @@ def run(db_uri, listen_host, listen_port, workers,
 
     config['deposit_notification_endpoint'] = deposit_notification_endpoint
     config['withdraw_notification_endpoint'] = withdraw_notification_endpoint
-    #
-    # # TODO do refactoring to mitigate the circular dependencies
-    # from transer.orchestrator import deposit, withdraw
-    # from transer import outerface
 
     async_loop = asyncio.get_event_loop()
     app = web.Application()
@@ -47,17 +44,36 @@ def run(db_uri, listen_host, listen_port, workers,
     btc_dispatcher = init_btc()      # gather JSON-RPC interfaces of Bitcoin processor
     eth_dispatcher = init_eth()      # gather JSON-RPC interfaces of Ethereum processor
 
-    executor = futures.ProcessPoolExecutor(max_workers=workers)
+    process_executor = futures.ProcessPoolExecutor(max_workers=workers)
 
-    app.router.add_post('/btc', handler_fabric(executor, btc_dispatcher))
-    app.router.add_post('/eth', handler_fabric(executor, eth_dispatcher))
-    app.router.add_post('/claim-wallet-addr/{currency}', outerface.claim_wallet_addr_endpoint)
-    app.router.add_post('/reconcile/{currency}', outerface.reconcile_addresses_endpoint)
-    app.router.add_post('/enforce-reconcile/{currency}', partial(outerface.reconcile_addresses_endpoint, enforce=True))
-    app.router.add_post('/withdraw', outerface.withdraw_endpoint)
-    app.router.add_get('/withdrawal-status/{u_txid}', outerface.withdrawal_status_endpoint)
+    # We need 'ThreadPoolExecutor' because 'multiprocessing' cannot pickle sockets
+    thread_executor = futures.ThreadPoolExecutor(max_workers=workers)
 
-    delayed_scheduler = create_delayed_scheduler(loop=async_loop, executor=executor)
+    app.router.add_post('/btc', handler_fabric(process_executor, btc_dispatcher))
+    app.router.add_post('/eth', handler_fabric(process_executor, eth_dispatcher))
+
+    app.router.add_post(
+        '/claim-wallet-addr/{currency}',
+        endpoint_fabric(thread_executor, outerface.claim_wallet_addr_endpoint)
+    )
+    app.router.add_post(
+        '/reconcile/{currency}',
+        endpoint_fabric(thread_executor, outerface.reconcile_addresses_endpoint)
+    )
+    app.router.add_post(
+        '/enforce-reconcile/{currency}',
+        endpoint_fabric(thread_executor, partial(outerface.reconcile_addresses_endpoint, enforce=True))
+    )
+    app.router.add_post(
+        '/withdraw',
+        endpoint_fabric(thread_executor, outerface.withdraw_endpoint)
+    )
+    app.router.add_get(
+        '/withdrawal-status/{u_txid}',
+        endpoint_fabric(thread_executor, outerface.withdrawal_status_endpoint)
+    )
+
+    delayed_scheduler = create_delayed_scheduler(loop=async_loop, executor=process_executor)
 
     btc_deposit_monitor_task = delayed_scheduler(
         deposit.periodic_check_deposit_btc,
