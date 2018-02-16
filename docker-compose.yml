@@ -29,7 +29,7 @@ services:
 
   daemon:
     build: .
-    command: python daemon.py
+    command: python prod/full_runner.py
     environment:
       - BITCOIND_URL=https://bitcoinrpc:dev@bitcoind:8332
       - ETHEREUMD_URL=http://geth:3101
@@ -44,7 +44,7 @@ services:
 
   btc-signer:
     build: .
-    command: python signers/btc_signer.py
+    command: python prod/btc_signer_runner.py
     environment:
       - BTC_MASTERKEY_NAME=btc_test
       - BTC_MASTERKEY_PASSPHRASE=1qazxsw2
@@ -53,7 +53,7 @@ services:
 
   eth-signer:
     build: .
-    command: python signers/eth_signer.py
+    command: python prod/eth_signer_runner.py
     environment:
       - ETH_MASTERKEY_NAME=eth_test
       - ETH_MASTERKEY_PASSPHRASE=1qazxsw2
