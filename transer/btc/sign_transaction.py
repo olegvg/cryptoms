@@ -5,6 +5,11 @@ from transer.db.btc import BitcoindInstance
 
 from sqlalchemy.orm.exc import NoResultFound
 
+# from transer import config
+from transer.utils import jsonrpc_caller
+
+# btc_signing_instance_uri = config['btc_signing_instance_uri']
+
 
 def sign_raw_transaction(bitcoind_inst, signing_addrs, trx_h):
     """
@@ -39,6 +44,7 @@ def sign_raw_transaction(bitcoind_inst, signing_addrs, trx_h):
 
 
 @_btc_dispatcher.add_method
+# @jsonrpc_caller(target_uri=btc_signing_instance_uri, catchables=[Exception, KeyError])
 def sign_transaction(bt_name, signing_addrs, trx):
     """
     sign_transaction()

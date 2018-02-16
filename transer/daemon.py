@@ -4,7 +4,7 @@ from concurrent import futures
 import asyncio
 from aiohttp import web
 
-from transer.utils import concurrent_fabric, init_db, create_delayed_scheduler, dump_db_ddl, recreate_entire_database
+from transer.utils import handler_fabric, init_db, create_delayed_scheduler, dump_db_ddl, recreate_entire_database
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
 from transer.eth import init_eth
@@ -18,6 +18,7 @@ def run(db_uri, listen_host, listen_port, workers,
         btc_masterkey_name, eth_masterkey_name,
         btc_crypt_key, eth_crypt_key,
         btcd_instance_name, ethd_instance_uri,
+        btc_signing_instance_uri, eth_signing_instance_uri,
         deposit_notification_endpoint, withdraw_notification_endpoint):
 
     config['eth_masterkey_name'] = eth_masterkey_name
@@ -29,8 +30,15 @@ def run(db_uri, listen_host, listen_port, workers,
     config['ethd_instance_uri'] = ethd_instance_uri
     config['btcd_instance_name'] = btcd_instance_name
 
+    config['eth_signing_instance_uri'] = eth_signing_instance_uri
+    config['btc_signing_instance_uri'] = btc_signing_instance_uri
+
     config['deposit_notification_endpoint'] = deposit_notification_endpoint
     config['withdraw_notification_endpoint'] = withdraw_notification_endpoint
+    #
+    # # TODO do refactoring to mitigate the circular dependencies
+    # from transer.orchestrator import deposit, withdraw
+    # from transer import outerface
 
     async_loop = asyncio.get_event_loop()
     app = web.Application()
@@ -40,10 +48,9 @@ def run(db_uri, listen_host, listen_port, workers,
     eth_dispatcher = init_eth()      # gather JSON-RPC interfaces of Ethereum processor
 
     executor = futures.ProcessPoolExecutor(max_workers=workers)
-    handler_fabric = concurrent_fabric(executor)
 
-    app.router.add_post('/btc', handler_fabric(btc_dispatcher))
-    app.router.add_post('/eth', handler_fabric(eth_dispatcher))
+    app.router.add_post('/btc', handler_fabric(executor, btc_dispatcher))
+    app.router.add_post('/eth', handler_fabric(executor, eth_dispatcher))
     app.router.add_post('/claim-wallet-addr/{currency}', outerface.claim_wallet_addr_endpoint)
     app.router.add_post('/reconcile/{currency}', outerface.reconcile_addresses_endpoint)
     app.router.add_post('/enforce-reconcile/{currency}', partial(outerface.reconcile_addresses_endpoint, enforce=True))
@@ -106,6 +113,9 @@ def main():
         else:
             eth_crypt_key = 'Snake oil'
 
+        btc_signing_instance_uri = environ['T_BTC_SIGNING_INSTANCE_URI']
+        eth_signing_instance_uri = environ['T_ETH_SIGNING_INSTANCE_URI']
+
         btcd_instance_name = environ['T_BTCD_INSTANCE_NAME']
         ethd_instance_uri = environ['T_ETHD_INSTANCE_URI']
         deposit_notification_endpoint = environ['T_DEPOSIT_NOTIFICATION_ENDPOINT']
@@ -129,6 +139,8 @@ def main():
         eth_crypt_key=eth_crypt_key,
         btcd_instance_name=btcd_instance_name,
         ethd_instance_uri=ethd_instance_uri,
+        btc_signing_instance_uri=btc_signing_instance_uri,
+        eth_signing_instance_uri=eth_signing_instance_uri,
         deposit_notification_endpoint=deposit_notification_endpoint,
         withdraw_notification_endpoint=withdraw_notification_endpoint
     )

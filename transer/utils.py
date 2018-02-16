@@ -1,3 +1,4 @@
+import inspect
 import traceback
 import sys
 import os.path
@@ -11,8 +12,12 @@ from datetime import datetime
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import ProgrammingError, DisconnectionError
 
+import urllib3
+import certifi
 from jsonrpc import JSONRPCResponseManager
 from jsonrpc.utils import DatetimeDecimalEncoder
+from jsonrpc.exceptions import JSONRPCDispatchException
+
 from aiohttp import web
 
 from . import db
@@ -114,6 +119,27 @@ def init_logging(level=100):
     root_logger.setLevel(level)
 
 
+def handler_fabric(executor, dispatcher):
+    async def submitter(request):
+        body = await request.text()
+        future = executor.submit(subprocess_wrapper, jsonrpc_handler, dispatcher, request.headers, body)
+        return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
+    return submitter
+
+
+def subprocess_wrapper(func, *args, **kwargs):
+    # Sqlalchemy's Engine to multiprocessing augmenter moved to init_db()
+    try:
+        res = func(*args, **kwargs)
+    except Exception as e:
+        # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
+        # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
+        root_multiprocessing_logger = logging.getLogger()
+        root_multiprocessing_logger.error(traceback.format_exc())
+        raise e
+    return res
+
+
 def jsonrpc_handler(dispatcher, headers, body):
     if headers.get('Content-Type') != 'application/json':
         error_response = {
@@ -129,16 +155,6 @@ def jsonrpc_handler(dispatcher, headers, body):
     response = JSONRPCResponseManager.handle(body, dispatcher)
     response.serialize = lambda s: json.dumps(s, cls=DatetimeDecimalEncoder)
     return web.Response(text=response.json, headers={'Content-Type': 'application/json'})
-
-
-def concurrent_fabric(executor):
-    def json_rpc_handler_fabric(dispatcher):
-        async def submitter(request):
-            body = await request.text()
-            future = executor.submit(subprocess_wrapper, jsonrpc_handler, dispatcher, request.headers, body)
-            return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
-        return submitter
-    return json_rpc_handler_fabric
 
 
 def bulk_importer(path):
@@ -192,14 +208,106 @@ def create_delayed_scheduler(loop=None, executor=None):
     return None
 
 
-def subprocess_wrapper(func, *args, **kwargs):
-    # Sqlalchemy's Engine to multiprocessing augmenter moved to init_db()
-    try:
-        res = func(*args, **kwargs)
-    except Exception as e:
-        # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
-        # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
-        root_multiprocessing_logger = logging.getLogger()
-        root_multiprocessing_logger.error(traceback.format_exc())
-        raise e
-    return res
+# All these tricks with magic numbers need to work around the limitations of 'multiprocessing'
+# and corresponding 'concurrent.futures': it cannot pickle same function with different
+# (e.g. changed by @decorator) signature. So I need to pass some kind of mark through all execution flow
+# to ensure that it performed right.
+# http://www.jsonrpc.org/specification#parameter_structures
+def jsonrpc_caller(target_uri=None, catchables=()):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if len(args) > 0 and len(kwargs) > 0:
+                raise JSONRPCDispatchException(-32600, 'Positional and named args cannot be mixed')
+
+            if len(args) and args[-1] == 'a237e8d6-1af0-4c22-8d47-062bb6900b18':  # magic number :)
+                args.pop()
+                return func(*args, **kwargs)
+            if kwargs.pop('__local_runnable__', None):
+                return func(*args, **kwargs)
+
+            if len(args) > 0:
+                params = {}
+                func_params = inspect.signature(func).parameters
+                for i, p in enumerate(func_params):
+                    params[p] = args[i]
+            else:
+                params = kwargs
+
+            params['__local_runnable__'] = 'a237e8d6-1af0-4c22-8d47-062bb6900b18'  # magic number :)
+            payload = {
+                "method": func.__name__,
+                "params": params,
+                "jsonrpc": "2.0",
+                "id": 0,
+            }
+
+            encoded_data = json.dumps(payload, cls=DatetimeDecimalEncoder).encode('utf-8')
+
+            http = urllib3.PoolManager(
+                ca_certs=certifi.where(),
+                cert_reqs='CERT_REQUIRED'
+            )
+            resp = http.request(
+                'POST',
+                target_uri,
+                body=encoded_data,
+                headers={'Content-Type': 'application/json'},
+                retries=10
+            )
+
+            decoded_resp = json.loads(resp.data)
+
+            if decoded_resp.get('result', None):
+                return decoded_resp['result']
+            else:
+                exceptions = {x.__name__: x for x in catchables}
+                error_data = decoded_resp['error']['data']
+                remote_exception_args = error_data['args']
+                if error_data['type'] in exceptions:
+                    remote_exception = exceptions[error_data['type']]
+                    raise remote_exception(*remote_exception_args)
+                else:
+                    unknown_exception = Exception
+                    raise unknown_exception(*remote_exception_args)
+
+        return wrapper if target_uri is not None else func
+    return decorator
+
+
+def call_jsonrpc(target_uri, method, kwargs, catchables):
+    payload = {
+        "method": method,
+        "params": kwargs,
+        "jsonrpc": "2.0",
+        "id": 0,
+    }
+
+    encoded_data = json.dumps(payload, cls=DatetimeDecimalEncoder).encode('utf-8')
+
+    http = urllib3.PoolManager(
+        ca_certs=certifi.where(),
+        cert_reqs='CERT_REQUIRED'
+    )
+    resp = http.request(
+        'POST',
+        target_uri,
+        body=encoded_data,
+        headers={'Content-Type': 'application/json'},
+        retries=10
+    )
+
+    decoded_resp = json.loads(resp.data)
+
+    if decoded_resp.get('result', None):
+        return decoded_resp['result']
+    else:
+        exceptions = {x.__name__: x for x in catchables}
+        error_data = decoded_resp['error']['data']
+        remote_exception_args = error_data['args']
+        if error_data['type'] in exceptions:
+            remote_exception = exceptions[error_data['type']]
+            raise remote_exception(*remote_exception_args)
+        else:
+            unknown_exception = Exception
+            raise unknown_exception(*remote_exception_args)

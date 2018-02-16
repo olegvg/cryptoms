@@ -4,7 +4,7 @@ import sys
 
 if __name__ == '__main__':
     selfpath = os.path.dirname(os.path.abspath(__file__))
-    rootpath = os.path.join(selfpath, '..')
+    rootpath = os.path.join(selfpath, '..', 'transer')
     sys.path.append(rootpath)
 
     from transer import daemon
@@ -20,6 +20,8 @@ if __name__ == '__main__':
         eth_crypt_key='1qazxsw2',
         btcd_instance_name='test_instance',
         ethd_instance_uri='http://127.0.0.1:48545',
+        btc_signing_instance_uri='http://127.0.0.1:8000/btc',
+        eth_signing_instance_uri='http://127.0.0.1:8000/eth',
         deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit',
         withdraw_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/withdraw'
     )
