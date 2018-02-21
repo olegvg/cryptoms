@@ -4,13 +4,15 @@ import sys
 import os.path
 import functools
 import logging
+from logging.config import dictConfig
 import json
 import asyncio
 import importlib.util
-from datetime import datetime
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import ProgrammingError, DisconnectionError
+
+from raven import Client
 
 import urllib3
 import certifi
@@ -20,20 +22,14 @@ from jsonrpc.exceptions import JSONRPCDispatchException
 
 from aiohttp import web
 
-from . import db
+from . import db, config
 
 
 class ExceptionBaseClass(Exception):
     logger = logging.getLogger('fallback')
 
     def __init__(self, m):
-        json_msg = {
-            'subsystem': self.logger.name,
-            'timestamp': datetime.utcnow().isoformat(),
-            'exception': self.__class__.__mro__[0].__name__,
-            'message': m
-        }
-        self.logger.warning(json.dumps(json_msg))
+        self.logger.exception(m, exc_info=True)
 
 
 def recreate_entire_database(engine):
@@ -106,17 +102,48 @@ def dump_db_ddl():
     db.meta.create_all(engine, checkfirst=False)
 
 
-def init_logging(level=100):
-    # default_formatter = '%(asctime)s %(levelname)-8s %(name)-16s %(message)s'
-    default_formatter = '%(message)s'
+def init_logging():
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': True,
 
-    default_handler = logging.StreamHandler()
-    default_formatter = logging.Formatter(default_formatter)
-    default_handler.setFormatter(default_formatter)
+        'formatters': {
+            'console': {
+                'format': '[%(asctime)s][%(levelname)s] %(name)s '
+                          '%(filename)s:%(funcName)s:%(lineno)d | %(message)s',
+                'datefmt': '%H:%M:%S',
+            },
+        },
 
-    root_logger = logging.getLogger()
-    root_logger.addHandler(default_handler)
-    root_logger.setLevel(level)
+        'handlers': {
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'console'
+            },
+            'sentry': {
+                'level': 'ERROR',
+                'class': 'raven.handlers.logging.SentryHandler',
+                'dsn': config['sentry_dsn'],
+            },
+        },
+
+        # TODO fine tuning of handlers
+        'loggers': {
+            '': {
+                'handlers': ['console', 'sentry'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'sqlalchemy': {
+                'handlers': ['console', 'sentry'],
+                'level': 'INFO',
+                'propagate': False
+            }
+        }
+    }
+
+    logging.config.dictConfig(logging_config)
 
 
 def handler_fabric(executor, dispatcher):
@@ -142,14 +169,15 @@ def endpoint_fabric(executor, func):
 def subprocess_wrapper(func, *args, **kwargs):
     # Sqlalchemy's Engine to multiprocessing augmenter moved to init_db()
     try:
-        res = func(*args, **kwargs)
+        return func(*args, **kwargs)
     except Exception as e:
-        # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
-        # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
-        root_multiprocessing_logger = logging.getLogger()
-        root_multiprocessing_logger.error(traceback.format_exc())
-        raise e
-    return res
+        # # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
+        # # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
+        # root_multiprocessing_logger = logging.getLogger()
+        # root_multiprocessing_logger.error(traceback.format_exc())
+        # raise e
+        sentry_client = Client(config['sentry_dsn'])
+        sentry_client.captureException()
 
 
 def jsonrpc_handler(dispatcher, headers, body):

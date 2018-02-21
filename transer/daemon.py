@@ -4,7 +4,7 @@ from concurrent import futures
 import asyncio
 from aiohttp import web
 
-from transer.utils import handler_fabric, endpoint_fabric, init_db, create_delayed_scheduler
+from transer.utils import handler_fabric, endpoint_fabric, init_db, init_logging, create_delayed_scheduler
 from transer.utils import dump_db_ddl, recreate_entire_database
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
@@ -17,7 +17,8 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
         btc_crypt_key, eth_crypt_key,
         btcd_instance_uri, ethd_instance_uri,
         btc_signing_instance_uri, eth_signing_instance_uri,
-        deposit_notification_endpoint, withdraw_notification_endpoint):
+        deposit_notification_endpoint, withdraw_notification_endpoint,
+        sentry_dsn):
 
     config['eth_masterkey_name'] = eth_masterkey_name
     config['btc_masterkey_name'] = btc_masterkey_name
@@ -34,6 +35,9 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
 
     config['deposit_notification_endpoint'] = deposit_notification_endpoint
     config['withdraw_notification_endpoint'] = withdraw_notification_endpoint
+
+    config['sentry_dsn'] = sentry_dsn
+    init_logging()
 
     # TODO do refactoring to mitigate the circular dependencies
     from transer.orchestrator import deposit, withdraw

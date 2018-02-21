@@ -1,60 +1,86 @@
 version: '3'
 
+volumes:
+  bitcoind-data:
+  ethereum-data:
+
 services:
   bitcoind:
-    image: docker.cryptology.com/blockchain/bitcoind:v2
+    image: docker.cryptology.com/blockchain/bitcoind:v3
     ports:
-      - 8333:8333
-      - 127.0.0.01:8332:8332
+      - 8332:8332
     environment:
       - TESTNET=1
       - RPCUSER=bitcoinrpc
       - RPCPASSWORD=dev
     volumes:
-      - /mnt/blockchain/bitcoin-testnet:/bitcoin
+      - bitcoind-data:/bitcoin
 
   geth:
     image: ethereum/client-go
-    command: --rpc --debug --port 30301 --networkid=4 # 1 for main net
+    command: --rpc --debug --rpcaddr 0.0.0.0 --rpcport 8545 --networkid=4 # 1 for main net
     ports:
-      - 30301:30301
-      - 127.0.0.1:8545:8545
+      - 8545:8545
     volumes:
-      - /mnt/blockchain/ethereum-rinkeby:/root/.ethereum
+      - ethereum-data:/root/.ethereum
 
   db:
     image: postgres:9.6
+    ports:
+      - 7777:5432
     environment:
       - POSTGRES_PASSWORD=dev
 
   daemon:
     build: .
     command: python prod/full_runner.py
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - geth
+      - bitcoind
     environment:
       - BITCOIND_URL=https://bitcoinrpc:dev@bitcoind:8332
       - ETHEREUMD_URL=http://geth:3101
       - DATABASE_URL=postgres://postgres:dev@db/postgres
       - CALLBACK_API_ROOT=https://staging.payments.cryptology.com/api/internal
-      - BTC_SIGNER_URL=https://btc-signer:9000/btc
-      - ETH_SIGNER_URL=https://eth-signer:9001/eth
+      - BTC_SIGNER_URL=http://btc-signer:9000/btc
+      - ETH_SIGNER_URL=http://eth-signer:9001/eth
       - SENTRY_DSN=https://d18fa496a45840d7ab19a24c94d8f450:d2559d05e4a64c0fbcff279a23578592@sentry.io/281239
       - PORT=8080
     ports:
       - 8080:8080
 
   btc-signer:
+    depends_on:
+      - db
     build: .
     command: python prod/btc_signer_runner.py
+    ports:
+      - 9000:9000
+    volumes:
+      - .:/app
     environment:
+      - DATABASE_URL=postgres://postgres:dev@db/postgres
+      - BITCOIND_URL=https://bitcoinrpc:dev@bitcoind:8332
       - BTC_MASTERKEY_NAME=btc_test
       - BTC_MASTERKEY_PASSPHRASE=1qazxsw2
       - SENTRY_DSN=https://d18fa496a45840d7ab19a24c94d8f450:d2559d05e4a64c0fbcff279a23578592@sentry.io/281239
       - PORT=9000
 
   eth-signer:
+    depends_on:
+      - db
     build: .
     command: python prod/eth_signer_runner.py
+    ports:
+      - 9001:9001
+    volumes:
+      - .:/app
     environment:
+      - DATABASE_URL=postgres://postgres:dev@db/postgres
+      - ETHEREUMD_URL=http://geth:3101
       - ETH_MASTERKEY_NAME=eth_test
       - ETH_MASTERKEY_PASSPHRASE=1qazxsw2
       - SENTRY_DSN=https://d18fa496a45840d7ab19a24c94d8f450:d2559d05e4a64c0fbcff279a23578592@sentry.io/281239
