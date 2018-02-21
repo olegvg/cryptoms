@@ -159,13 +159,22 @@ def handler_fabric(executor, dispatcher):
 
 def endpoint_fabric(executor, func):
     async def submitter(request):
-        sync_request = {
-            # here socket object in fact, cannot be pickled
-            'match_info': request.match_info,
-            'json': await request.json(loads=json.loads)
-        }
-        future = executor.submit(subprocess_wrapper, func, sync_request)
-        return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
+        try:
+            sync_request = {
+                # here socket object in fact, cannot be pickled
+                'match_info': request.match_info,
+                'json': await request.json(loads=json.loads)
+            }
+            future = executor.submit(subprocess_wrapper, func, sync_request)
+            return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
+        except Exception as e:
+            sentry_client = Client(
+                dsn=config['sentry_dsn'],
+                release=config['app_release'],
+                environment=config['sentry_environment']
+            )
+            sentry_client.captureException()
+
     return submitter
 
 
