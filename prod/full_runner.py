@@ -33,7 +33,7 @@ if __name__ == '__main__':
         withdraw_notification_endpoint = environ['CALLBACK_API_ROOT']
 
         sentry_dsn = os.environ.get("SENTRY_DSN"),
-        sentry_release = os.environ.get("APP_VERSION", "local_commit"),
+        app_release = os.environ.get("APP_VERSION", "local_commit"),
         sentry_environment = os.environ.get("SENTRY_ENVIRONMENT", "local")
 
     except KeyError as e:
@@ -59,6 +59,6 @@ if __name__ == '__main__':
         deposit_notification_endpoint=deposit_notification_endpoint,
         withdraw_notification_endpoint=withdraw_notification_endpoint,
         sentry_dsn=sentry_dsn,
-        app_release=sentry_release,
+        app_release=app_release,
         sentry_environment=sentry_environment
     )
