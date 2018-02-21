@@ -103,6 +103,20 @@ def dump_db_ddl():
 
 
 def init_logging():
+    if config['sentry_dsn']:
+        sentry_config = {
+            'level': 'ERROR',
+            'class': 'raven.handlers.logging.SentryHandler',
+            'dsn': config['sentry_dsn'],
+            'release': config['app_release'],
+            'environment': config['sentry_environment']
+        }
+    else:
+        sentry_config = {
+            'level': 'ERROR',
+            'class': 'logging.NullHandler',
+        }
+
     logging_config = {
         'version': 1,
         'disable_existing_loggers': True,
@@ -121,13 +135,7 @@ def init_logging():
                 'class': 'logging.StreamHandler',
                 'formatter': 'console'
             },
-            'sentry': {
-                'level': 'ERROR',
-                'class': 'raven.handlers.logging.SentryHandler',
-                'dsn': config['sentry_dsn'],
-                'release': config['app_release'],
-                'environment': config['sentry_environment']
-            },
+            'sentry': sentry_config,
         },
 
         # TODO fine tuning of handlers
@@ -157,28 +165,36 @@ def handler_fabric(executor, dispatcher):
     return submitter
 
 
+async def json_from_request(req, *_, loads=functools.partial(json.loads, cls=DatetimeDecimalEncoder)):
+    body = await req.text()
+    return loads(body) if body else None
+
+
 def endpoint_fabric(executor, func):
     async def submitter(request):
         try:
             sync_request = {}
 
             # here socket object in fact, cannot be pickled
-            sync_request['match_info'] = request.match_info,
-            try:
-                sync_request['json'] = await request.json(loads=json.loads)
-            except json.decoder.JSONDecodeError:
-                pass
+            sync_request['match_info'] = request.match_info
+            sync_request['json'] = await json_from_request(request)
 
             future = executor.submit(subprocess_wrapper, func, sync_request)
             return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
         except Exception as e:
-            sentry_client = Client(
-                dsn=config['sentry_dsn'],
-                release=config['app_release'],
-                environment=config['sentry_environment']
-            )
-            sentry_client.captureException()
-
+            if config['sentry_dsn']:
+                sentry_client = Client(
+                    dsn=config['sentry_dsn'],
+                    release=config['app_release'],
+                    environment=config['sentry_environment']
+                )
+                sentry_client.captureException()
+            else:
+                # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
+                # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
+                root_multiprocessing_logger = logging.getLogger()
+                root_multiprocessing_logger.error(traceback.format_exc())
+                raise e
     return submitter
 
 
@@ -187,17 +203,19 @@ def subprocess_wrapper(func, *args, **kwargs):
     try:
         return func(*args, **kwargs)
     except Exception as e:
-        # # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
-        # # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
-        # root_multiprocessing_logger = logging.getLogger()
-        # root_multiprocessing_logger.error(traceback.format_exc())
-        # raise e
-        sentry_client = Client(
-            dsn=config['sentry_dsn'],
-            release=config['app_release'],
-            environment=config['sentry_environment']
-        )
-        sentry_client.captureException()
+        if config['sentry_dsn']:
+            sentry_client = Client(
+                dsn=config['sentry_dsn'],
+                release=config['app_release'],
+                environment=config['sentry_environment']
+            )
+            sentry_client.captureException()
+        else:
+            # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
+            # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
+            root_multiprocessing_logger = logging.getLogger()
+            root_multiprocessing_logger.error(traceback.format_exc())
+            raise e
 
 
 def jsonrpc_handler(dispatcher, headers, body):

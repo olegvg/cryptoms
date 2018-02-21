@@ -24,5 +24,8 @@ if __name__ == '__main__':
         btc_signing_instance_uri='http://127.0.0.1:8000/btc',
         eth_signing_instance_uri='http://127.0.0.1:8000/eth',
         deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit',
-        withdraw_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/withdraw'
+        withdraw_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/withdraw',
+        sentry_dsn=None,
+        app_release=None,
+        sentry_environment=None
     )

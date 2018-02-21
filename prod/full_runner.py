@@ -32,7 +32,7 @@ if __name__ == '__main__':
         deposit_notification_endpoint = environ['CALLBACK_API_ROOT']
         withdraw_notification_endpoint = environ['CALLBACK_API_ROOT']
 
-        sentry_dsn = os.environ.get("SENTRY_DSN"),
+        sentry_dsn = os.environ.get("SENTRY_DSN", None),
         app_release = os.environ.get("APP_VERSION", "local_commit"),
         sentry_environment = os.environ.get("SENTRY_ENVIRONMENT", "local")
 

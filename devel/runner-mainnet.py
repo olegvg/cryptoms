@@ -20,9 +20,12 @@ if __name__ == '__main__':
         btc_crypt_key='1qazxsw2',
         eth_crypt_key='1qazxsw2',
         btcd_instance_uri='http://dummy:dummy@127.0.0.1:8332',
-        ethd_instance_uri='http://127.0.0.1:48545',
+        ethd_instance_uri='http://127.0.0.1:8545',
         btc_signing_instance_uri='http://127.0.0.1:8000/btc',
         eth_signing_instance_uri='http://127.0.0.1:8000/eth',
         deposit_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/deposit',
-        withdraw_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/withdraw'
+        withdraw_notification_endpoint='https://staging.payments.cryptology.com/api/internal/cryptopay/withdraw',
+        sentry_dsn=None,
+        app_release=None,
+        sentry_environment=None
     )
