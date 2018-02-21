@@ -160,11 +160,15 @@ def handler_fabric(executor, dispatcher):
 def endpoint_fabric(executor, func):
     async def submitter(request):
         try:
-            sync_request = {
-                # here socket object in fact, cannot be pickled
-                'match_info': request.match_info,
-                'json': await request.json(loads=json.loads)
-            }
+            sync_request = {}
+
+            # here socket object in fact, cannot be pickled
+            sync_request['match_info'] = request.match_info,
+            try:
+                sync_request['json'] = await request.json(loads=json.loads)
+            except json.decoder.JSONDecodeError:
+                pass
+
             future = executor.submit(subprocess_wrapper, func, sync_request)
             return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
         except Exception as e:
