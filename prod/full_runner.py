@@ -11,7 +11,7 @@ if __name__ == '__main__':
     from transer import daemon
     from transer.exceptions import DaemonConfigException
 
-    sentry_full_dsn = None
+    sentry_dsn = None
     try:
         db_uri = environ['DATABASE_URL']
         listen_port = int(environ['PORT'])
@@ -32,12 +32,13 @@ if __name__ == '__main__':
         deposit_notification_endpoint = environ['CALLBACK_API_ROOT']
         withdraw_notification_endpoint = environ['CALLBACK_API_ROOT']
 
-        sentry_dsn = environ['SENTRY_DSN']
-        sentry_project = environ['SENTRY_ENVIRONMENT']
-        sentry_full_dsn = f'{sentry_dsn}/{sentry_project}'
+        sentry_dsn = os.environ.get("SENTRY_DSN"),
+        sentry_release = os.environ.get("APP_VERSION", "local_commit"),
+        sentry_environment = os.environ.get("SENTRY_ENVIRONMENT", "local")
+
     except KeyError as e:
-        if sentry_full_dsn:
-            sentry_client = Client(sentry_full_dsn)
+        if sentry_dsn:
+            sentry_client = Client(dsn=sentry_dsn)
             sentry_client.captureException()
         raise DaemonConfigException("Config env vars don't set properly. Can't start.") from e
 
@@ -57,5 +58,7 @@ if __name__ == '__main__':
         eth_signing_instance_uri=eth_signing_instance_uri,
         deposit_notification_endpoint=deposit_notification_endpoint,
         withdraw_notification_endpoint=withdraw_notification_endpoint,
-        sentry_dsn=sentry_full_dsn
+        sentry_dsn=sentry_dsn,
+        app_release=sentry_release,
+        sentry_environment=sentry_environment
     )

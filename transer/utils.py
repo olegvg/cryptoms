@@ -125,6 +125,8 @@ def init_logging():
                 'level': 'ERROR',
                 'class': 'raven.handlers.logging.SentryHandler',
                 'dsn': config['sentry_dsn'],
+                'release': config['app_release'],
+                'environment': config['sentry_environment']
             },
         },
 
@@ -176,7 +178,11 @@ def subprocess_wrapper(func, *args, **kwargs):
         # root_multiprocessing_logger = logging.getLogger()
         # root_multiprocessing_logger.error(traceback.format_exc())
         # raise e
-        sentry_client = Client(config['sentry_dsn'])
+        sentry_client = Client(
+            dsn=config['sentry_dsn'],
+            release=config['app_release'],
+            environment=config['sentry_environment']
+        )
         sentry_client.captureException()
 
 

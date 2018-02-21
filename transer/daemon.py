@@ -18,7 +18,7 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
         btcd_instance_uri, ethd_instance_uri,
         btc_signing_instance_uri, eth_signing_instance_uri,
         deposit_notification_endpoint, withdraw_notification_endpoint,
-        sentry_dsn):
+        sentry_dsn, app_release, sentry_environment):
 
     config['eth_masterkey_name'] = eth_masterkey_name
     config['btc_masterkey_name'] = btc_masterkey_name
@@ -37,6 +37,8 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
     config['withdraw_notification_endpoint'] = withdraw_notification_endpoint
 
     config['sentry_dsn'] = sentry_dsn
+    config['app_release'] = app_release
+    config['sentry_environment'] = sentry_environment
     init_logging()
 
     # TODO do refactoring to mitigate the circular dependencies
