@@ -153,6 +153,9 @@ def init_logging():
         }
     }
 
+    import sys, pprint
+    sys.stderr.write(pprint.pformat(logging_config))
+
     logging.config.dictConfig(logging_config)
     logging.getLogger('initial').exception('Logger init finished')
 
