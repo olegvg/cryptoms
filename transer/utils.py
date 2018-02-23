@@ -154,7 +154,6 @@ def init_logging():
     }
 
     logging.config.dictConfig(logging_config)
-    logging.getLogger('initial').exception('Logger init finished')
 
 
 def handler_fabric(executor, dispatcher):
