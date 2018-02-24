@@ -5,6 +5,7 @@ import os.path
 import functools
 import logging
 from logging.config import dictConfig
+import decimal
 import json
 import asyncio
 import importlib.util
@@ -22,7 +23,7 @@ from jsonrpc.exceptions import JSONRPCDispatchException
 
 from aiohttp import web
 
-from . import db, config
+from transer import db, config
 
 
 class ExceptionBaseClass(Exception):
@@ -164,7 +165,7 @@ def handler_fabric(executor, dispatcher):
     return submitter
 
 
-async def json_from_request(req, *_, loads=functools.partial(json.loads, cls=DatetimeDecimalEncoder)):
+async def json_from_request(req, *_, loads=functools.partial(json.loads, parse_float=decimal.Decimal)):
     body = await req.text()
     return loads(body) if body else None
 
