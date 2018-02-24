@@ -1,8 +1,8 @@
 from functools import partial
-from os import environ
 from concurrent import futures
 import asyncio
 from aiohttp import web
+from raven import breadcrumbs
 
 from transer.utils import handler_fabric, endpoint_fabric, init_db, init_logging, create_delayed_scheduler
 from transer.utils import dump_db_ddl, recreate_entire_database
@@ -40,6 +40,9 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
     config['app_release'] = app_release
     config['sentry_environment'] = sentry_environment
     init_logging()
+
+    breadcrumbs.record(message='Initial config', data=config,
+                       category='config', level='info')
 
     # TODO do refactoring to mitigate the circular dependencies
     from transer.orchestrator import deposit, withdraw
