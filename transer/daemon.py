@@ -1,10 +1,11 @@
 from functools import partial
-from os import environ
 from concurrent import futures
 import asyncio
+import logging
+import pprint
 from aiohttp import web
 
-from transer.utils import handler_fabric, endpoint_fabric, init_db, create_delayed_scheduler
+from transer.utils import handler_fabric, endpoint_fabric, init_db, init_logging, create_delayed_scheduler
 from transer.utils import dump_db_ddl, recreate_entire_database
 from transer.exceptions import DaemonConfigException
 from transer.btc import init_btc
@@ -17,7 +18,8 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
         btc_crypt_key, eth_crypt_key,
         btcd_instance_uri, ethd_instance_uri,
         btc_signing_instance_uri, eth_signing_instance_uri,
-        deposit_notification_endpoint, withdraw_notification_endpoint):
+        deposit_notification_endpoint, withdraw_notification_endpoint,
+        sentry_dsn, app_release, sentry_environment):
 
     config['eth_masterkey_name'] = eth_masterkey_name
     config['btc_masterkey_name'] = btc_masterkey_name
@@ -34,6 +36,13 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
 
     config['deposit_notification_endpoint'] = deposit_notification_endpoint
     config['withdraw_notification_endpoint'] = withdraw_notification_endpoint
+
+    config['sentry_dsn'] = sentry_dsn
+    config['app_release'] = app_release
+    config['sentry_environment'] = sentry_environment
+    init_logging()
+
+    logging.getLogger().exception(pprint.pformat(config))
 
     # TODO do refactoring to mitigate the circular dependencies
     from transer.orchestrator import deposit, withdraw
@@ -94,7 +103,7 @@ def run(db_uri, listen_host, listen_port, workers, signing_mode,
     delayed_scheduler = create_delayed_scheduler(loop=async_loop, executor=process_executor)
 
     # suppress all the outgoing connections/notification clients in 'signing node' mode
-    if signing_mode is False:
+    if not signing_mode:
         btc_deposit_monitor_task = delayed_scheduler(
             deposit.periodic_check_deposit_btc,
             interval=50

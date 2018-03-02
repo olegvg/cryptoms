@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+BUILD_VERSION=${BUILD_VERSION:-latest}
+
+case $1 in
+  staging|production)
+    [ "$1" != "$(terraform workspace show)" ] && \
+      terraform workspace select $1
+    terraform ${@:2} \
+      -var-file=$1.tfvars \
+      -var build_version=$BUILD_VERSION
+    ;;
+  *)
+    echo usage: ./terraform '<staging|production>' ...
+    ;;
+esac

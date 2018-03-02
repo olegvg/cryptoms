@@ -2,52 +2,62 @@ import logging
 
 from .utils import ExceptionBaseClass
 
-logger = logging.getLogger('.db')
+generic_logger = logging.getLogger('.generic')
+btc_logger = logging.getLogger('.btc')
+eth_logger = logging.getLogger('.eth')
 
 
 class DaemonConfigException(ExceptionBaseClass):
-    logger = logger
+    logger = generic_logger
 
 
-class BtcAddressIntegrityException(ExceptionBaseClass):
-    logger = logger
+class BtcBaseClass(ExceptionBaseClass):
+    logger = btc_logger
 
 
-class BtcAddressCreationException(ExceptionBaseClass):
-    logger = logger
+class EthBaseClass(ExceptionBaseClass):
+    logger = eth_logger
 
 
-class BtcAddressValidationException(ExceptionBaseClass):
-    logger = logger
+class BtcAddressIntegrityException(BtcBaseClass):
+    pass
 
 
-class BtcCreateTransactionException(ExceptionBaseClass):
-    logger = logger
+class BtcAddressCreationException(BtcBaseClass):
+    pass
 
 
-class BtcSignTransactionException(ExceptionBaseClass):
-    logger = logger
+class BtcAddressValidationException(BtcBaseClass):
+    pass
 
 
-class BtcSendTransactionException(ExceptionBaseClass):
-    logger = logger
+class BtcCreateTransactionException(BtcBaseClass):
+    pass
 
 
-class BtcMonitorTransactionException(ExceptionBaseClass):
-    logger = logger
+class BtcSignTransactionException(BtcBaseClass):
+    pass
 
 
-class EthAddressIntegrityException(ExceptionBaseClass):
-    logger = logger
+class BtcSendTransactionException(BtcBaseClass):
+    pass
 
 
-class EthAddressCreationException(ExceptionBaseClass):
-    logger = logger
+class BtcMonitorTransactionException(BtcBaseClass):
+    pass
 
 
-class EthMonitorTransactionException(ExceptionBaseClass):
-    logger = logger
+class EthAddressIntegrityException(EthBaseClass):
+    pass
+
+
+class EthAddressCreationException(EthBaseClass):
+    pass
+
+
+class EthMonitorTransactionException(EthBaseClass):
+    pass
 
 
 class TransactionInconsistencyError(ExceptionBaseClass):
-    logger = logger
+    logger = generic_logger

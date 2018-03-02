@@ -171,7 +171,7 @@ class Address(Base):
         bip32_key = BIP32Node.from_hwif(masterkey_b)
         full_path = f'{self.crypto_path}/{self.crypto_number}'
 
-        netcode = 'XTN' if self.masterkey.treat_as_testnet is True else 'BTC'
+        netcode = 'XTN' if self.masterkey.treat_as_testnet else 'BTC'
         bip32_key._netcode = netcode  # грязный хак, чтобы обойти кривую генерацию ключей для testnet в Electrum
 
         derived_key = bip32_key.subkey_for_path(full_path)
@@ -182,7 +182,7 @@ class Address(Base):
         bip32_key = BIP32Node.from_hwif(masterkey)
         full_path = f'{self.crypto_path}/{self.crypto_number}'
 
-        netcode = 'XTN' if self.masterkey.treat_as_testnet is True else 'BTC'
+        netcode = 'XTN' if self.masterkey.treat_as_testnet else 'BTC'
         bip32_key._netcode = netcode  # грязный хак, чтобы обойти кривую генерацию ключей для testnet в Electrum
 
         derived_key = bip32_key.subkey_for_path(full_path)
@@ -221,7 +221,7 @@ class Address(Base):
             addresses with {masterkey.pub_masterkey}:{crypto_path}/{from_crypto_num}-{from_crypto_num+num_addrs}''')
 
         bip32_key = BIP32Node.from_hwif(masterkey.get_priv_masterkey())
-        netcode = 'XTN' if masterkey.treat_as_testnet is True else 'BTC'
+        netcode = 'XTN' if masterkey.treat_as_testnet else 'BTC'
         bip32_key._netcode = netcode  # грязный хак чтобы обойти кривую генерацию ключей для testnet в Electrum
 
         instances = []
@@ -251,7 +251,7 @@ class Address(Base):
         sqla_session.add_all(instances)
         sqla_session.commit()
 
-        if update_bitcoind is True:
+        if update_bitcoind:
             committed_instances = interested_addrs_q.all()
             return cls.update_bitcoind_with_addresses(
                 bitcoind_inst,
@@ -322,9 +322,9 @@ class Address(Base):
         # poor man's способ узнать успешность importmulti :)
         success = functools.reduce(lambda x, y: x and y, [i['success'] for i in res])
 
-        if success is True:
+        if success:
             for i in instances:
-                if check_integrity is True:
+                if check_integrity:
                     i.check_integrity()
                 i.is_populated = True
                 i.bitcoind_inst = bitcoind_inst

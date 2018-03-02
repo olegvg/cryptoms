@@ -21,3 +21,16 @@ build:
     - docker pull "$CI_REGISTRY_IMAGE" || true
     - docker build --build-arg="APP_VERSION=$CI_COMMIT_SHA" --tag="$BUILD_TAG" --cache-from="$CI_REGISTRY_IMAGE" .
     - for TAG in $PUSH_TAGS; do docker tag "$BUILD_TAG" "$TAG" && docker push "$TAG"; done
+
+deploy to staging:
+  stage: deploy
+  when: manual
+  script:
+  - curl https://releases.hashicorp.com/terraform/0.11.3/terraform_0.11.3_linux_amd64.zip > /tmp/terraform.zip
+  - unzip -xo /tmp/terraform.zip -d /usr/local/bin
+  - gpg -v --import <(echo "$GPG_PRIVATE_KEY")
+  - gpg --decrypt infra/staging.vault > infra/staging.tfvars
+  - cd infra && terraform init && ./deploy.sh staging
+  environment:
+    name: staging
+    url: https://staging.cryptopayments.cryptology.com:8080

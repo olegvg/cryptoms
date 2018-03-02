@@ -35,7 +35,7 @@ RUN set -x \
     chown -R app:app /app
 
 USER app
-CMD ["python", "-u", "prod/runner.py"]
+CMD ["python", "-u", "prod/full_runner.py"]
 
 ARG APP_VERSION
 ENV APP_VERSION ${APP_VERSION:-local_commit}

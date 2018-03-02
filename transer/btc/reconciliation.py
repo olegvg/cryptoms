@@ -34,7 +34,7 @@ def reconcile_addresses(bt_name, enforce=False, confirmations=6):
     if len(addrs) == 0:
         return {}
 
-    if enforce is True:
+    if enforce:
         for addr in addrs:
             if addr.address in unspent_addresses:
                 addr.amount = unspent_addresses[addr.address]
