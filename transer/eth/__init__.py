@@ -12,5 +12,5 @@ _eth_dispatcher = Dispatcher()
 
 def init_eth():
     mypath = os.path.dirname(os.path.realpath(__file__))
-    bulk_importer(mypath)
+    #bulk_importer(mypath)
     return _eth_dispatcher

@@ -4,13 +4,16 @@ import sys
 import os.path
 import functools
 import logging
+from logging.config import dictConfig
+import decimal
 import json
 import asyncio
 import importlib.util
-from datetime import datetime
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import ProgrammingError, DisconnectionError
+
+from raven import Client
 
 import urllib3
 import certifi
@@ -20,20 +23,14 @@ from jsonrpc.exceptions import JSONRPCDispatchException
 
 from aiohttp import web
 
-from . import db
+from transer import db, config
 
 
 class ExceptionBaseClass(Exception):
     logger = logging.getLogger('fallback')
 
     def __init__(self, m):
-        json_msg = {
-            'subsystem': self.logger.name,
-            'timestamp': datetime.utcnow().isoformat(),
-            'exception': self.__class__.__mro__[0].__name__,
-            'message': m
-        }
-        self.logger.warning(json.dumps(json_msg))
+        self.logger.exception(m, exc_info=True)
 
 
 def recreate_entire_database(engine):
@@ -106,17 +103,58 @@ def dump_db_ddl():
     db.meta.create_all(engine, checkfirst=False)
 
 
-def init_logging(level=100):
-    # default_formatter = '%(asctime)s %(levelname)-8s %(name)-16s %(message)s'
-    default_formatter = '%(message)s'
+def init_logging():
+    if config['sentry_dsn']:
+        sentry_config = {
+            'level': 'ERROR',
+            'class': 'raven.handlers.logging.SentryHandler',
+            'dsn': config['sentry_dsn'],
+            'release': config['app_release'],
+            'environment': config['sentry_environment']
+        }
+    else:
+        sentry_config = {
+            'level': 'ERROR',
+            'class': 'logging.NullHandler',
+        }
 
-    default_handler = logging.StreamHandler()
-    default_formatter = logging.Formatter(default_formatter)
-    default_handler.setFormatter(default_formatter)
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': True,
 
-    root_logger = logging.getLogger()
-    root_logger.addHandler(default_handler)
-    root_logger.setLevel(level)
+        'formatters': {
+            'console': {
+                'format': '[%(asctime)s][%(levelname)s] %(name)s '
+                          '%(filename)s:%(funcName)s:%(lineno)d | %(message)s',
+                'datefmt': '%H:%M:%S',
+            },
+        },
+
+        'handlers': {
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'console'
+            },
+            'sentry': sentry_config,
+        },
+
+        # TODO fine tuning of handlers
+        'loggers': {
+            '': {
+                'handlers': ['console', 'sentry'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'sqlalchemy': {
+                'handlers': ['console', 'sentry'],
+                'level': 'INFO',
+                'propagate': False
+            }
+        }
+    }
+
+    logging.config.dictConfig(logging_config)
 
 
 def handler_fabric(executor, dispatcher):
@@ -127,29 +165,57 @@ def handler_fabric(executor, dispatcher):
     return submitter
 
 
+async def json_from_request(req, *_, loads=functools.partial(json.loads, parse_float=decimal.Decimal)):
+    body = await req.text()
+    return loads(body) if body else None
+
+
 def endpoint_fabric(executor, func):
     async def submitter(request):
-        sync_request = {
+        try:
+            sync_request = {}
+
             # here socket object in fact, cannot be pickled
-            'match_info': request.match_info,
-            'json': await request.json(loads=json.loads)
-        }
-        future = executor.submit(subprocess_wrapper, func, sync_request)
-        return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
+            sync_request['match_info'] = request.match_info
+            sync_request['json'] = await json_from_request(request)
+
+            future = executor.submit(subprocess_wrapper, func, sync_request)
+            return await asyncio.wrap_future(future)   # future.result() нельзя, тк. нужен (a)wait в asyncio loop
+        except Exception as e:
+            if config['sentry_dsn']:
+                sentry_client = Client(
+                    dsn=config['sentry_dsn'],
+                    release=config['app_release'],
+                    environment=config['sentry_environment']
+                )
+                sentry_client.captureException()
+            else:
+                # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
+                # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
+                root_multiprocessing_logger = logging.getLogger()
+                root_multiprocessing_logger.error(traceback.format_exc())
+                raise e
     return submitter
 
 
 def subprocess_wrapper(func, *args, **kwargs):
     # Sqlalchemy's Engine to multiprocessing augmenter moved to init_db()
     try:
-        res = func(*args, **kwargs)
+        return func(*args, **kwargs)
     except Exception as e:
-        # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
-        # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
-        root_multiprocessing_logger = logging.getLogger()
-        root_multiprocessing_logger.error(traceback.format_exc())
-        raise e
-    return res
+        if config['sentry_dsn']:
+            sentry_client = Client(
+                dsn=config['sentry_dsn'],
+                release=config['app_release'],
+                environment=config['sentry_environment']
+            )
+            sentry_client.captureException()
+        else:
+            # If you wish you may gather this output in main process via multiprocessing.log_to_stderr() logger
+            # by default, futures.ProcessPoolExecutor()'s processes propagate error() messages to main one
+            root_multiprocessing_logger = logging.getLogger()
+            root_multiprocessing_logger.error(traceback.format_exc())
+            raise e
 
 
 def jsonrpc_handler(dispatcher, headers, body):
@@ -265,7 +331,7 @@ def jsonrpc_caller(target_uri=None, catchables=()):
                 target_uri,
                 body=encoded_data,
                 headers={'Content-Type': 'application/json'},
-                retries=10
+                retries=3
             )
 
             decoded_resp = json.loads(resp.data)

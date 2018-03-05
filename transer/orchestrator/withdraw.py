@@ -1,4 +1,5 @@
 import decimal
+import logging
 
 from sqlalchemy import desc, asc
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -23,9 +24,11 @@ from transer.eth.create_transaction import TRANSACTION_GAS
 from transer.eth import eth_divider
 
 
+logger = logging.getLogger(__name__)
+
+
 def withdraw_btc(u_txid, address, amount):
     """
-
     :param u_txid: UUID4 идентификатор транзакции в сервисе cryptopay
     :param address: адрес, на который нужно сделать перечилсение;
         запрещены перечисления членам системы / на адреса, принадлежащие системе используя внешнюю Bitcoin сеть
@@ -38,6 +41,7 @@ def withdraw_btc(u_txid, address, amount):
         btc.Address.address == address
     ).count()
     if check_addr > 0:  # == 1 actually
+        logger.error(f'Withdrawal to internal address {address} detected and explicitly prohibited')
         return WithdrawalStatus.FAILED.value
 
     u_txid_q = transaction.CryptoWithdrawTransaction.query.filter(
@@ -101,6 +105,10 @@ def withdraw_btc(u_txid, address, amount):
         if estimate_amount < amount + projected_fee:
             # Insufficient funds
             sqla_session.commit()
+            logger.error(
+                f"BTC withdrawal insufficient funds error (amount: {amount}, "
+                f"fee {projected_fee}, balance: {estimate_amount})",
+            )
             return crypto_transaction.status
 
         src_addresses = [x.address for x in src_address_objs]

@@ -45,4 +45,4 @@ def sign_transaction(src_addr, priv_key, unsigned_tx_h, network_id=1):
     )
 
     signed_tx_h = codecs.encode(rlp.encode(tx_obj, transactions.Transaction), 'hex')
-    return b'0x' + signed_tx_h
+    return '0x' + signed_tx_h.decode('ascii')

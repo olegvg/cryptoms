@@ -74,4 +74,4 @@ def create_transaction(web3_url, src_addr, dst_addr, amount, gas_price):
     )
 
     unsigned_tx_h = codecs.encode(rlp.encode(tx), 'hex')
-    return unsigned_tx_h
+    return unsigned_tx_h.decode()
