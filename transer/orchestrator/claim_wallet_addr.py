@@ -7,17 +7,6 @@ def claim_btc_addr():
     btcd_instance_name = config['btcd_instance_name']
     key_name = config['btc_masterkey_name']
 
-    # masterkey_q = btc.MasterKey.query.filter(
-    #     btc.MasterKey.masterkey_name == key_name
-    # )
-    # masterkey = masterkey_q.one()
-    #
-    # bitcoind_instance_q = btc.BitcoindInstance.query.filter(
-    #     btc.BitcoindInstance.instance_name == btcd_instance_name
-    # )
-    # bitcoind_inst = bitcoind_instance_q.one()
-    # address_row = btc.Address.create_next_address(bitcoind_inst=bitcoind_inst, masterkey=masterkey)
-
     newborn_address = btc_create_address.create_unpropagated_address(
         bt_name=btcd_instance_name,
         key_name=key_name
